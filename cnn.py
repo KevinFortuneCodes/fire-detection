@@ -4,8 +4,6 @@ from keras.optimizers import Adam
 from keras.losses import SparseCategoricalCrossentropy
 import numpy as np
 
-#TO DO: GENERARLIZE EVALUATE FUNCTION FOR MORE METRICS
-
 MODEL_CONFIG = {
     'input_shape': (32, 32, 3),
     'conv_layers': [
@@ -32,6 +30,10 @@ TRAIN_CONFIG = {
     'batch_size': 32,
     'verbose': 1
 }
+
+# need to convert torch tensor
+# download the first link in the downloads page
+# 
 
 def create_model(config=None):
     """
@@ -112,12 +114,12 @@ def train_model(model, train_data, val_data=None, config=TRAIN_CONFIG):
         verbose: Verbosity level
     
     Returns:
-        Training history
+        Trained model
     """
     X_train, y_train = train_data
     validation_data = val_data if val_data else None
     
-    history = model.fit(
+    trained_model = model.fit(
         X_train, y_train,
         validation_data=validation_data,
         epochs=config['epochs'],
@@ -125,7 +127,7 @@ def train_model(model, train_data, val_data=None, config=TRAIN_CONFIG):
         verbose=config['verbose']
     )
     
-    return history
+    return trained_model
 
 def evaluate_model(model, test_data):
     """

@@ -1,9 +1,7 @@
 from cnn import create_model, compile_model, train_model, evaluate_model
 from experiments import EXPERIMENTS
+from load_data import retrieve_data
 
-# ============================================================================
-# EXPERIMENT RUNNER
-# ============================================================================
 
 def setup_experiment(experiment_name, show_summary=True):
     """
@@ -47,7 +45,7 @@ def train_experiment(model, experiment_name, train_data, val_data=None):
         val_data: Validation data (X_val, y_val) tuple or None
     
     Returns:
-        Training history object
+        Trained model object
     """
     if experiment_name not in EXPERIMENTS:
         raise ValueError(f"Unknown experiment: {experiment_name}")
@@ -58,14 +56,14 @@ def train_experiment(model, experiment_name, train_data, val_data=None):
     print(f"Training Experiment: {experiment_name}")
     print(f"{'='*60}")
     
-    history = train_model(
+    trained_model = train_model(
         model,
         train_data,
         val_data=val_data,
         config=experiment['train_config']
     )
     
-    return history
+    return trained_model
 
 def evaluate_experiment(model, test_data):
     """
@@ -106,23 +104,23 @@ def run_experiment(experiment_name, train_data=None, val_data=None,
         show_summary: Whether to print model summary
     
     Returns:
-        Tuple of (model, training_history, test_results)
-        Returns None for history/test_results if training/evaluation not performed
+        Tuple of (model, trained_model, test_results)
+        Returns None for trained_model/test_results if training/evaluation not performed
     """
     # Setup model
     model = setup_experiment(experiment_name, show_summary=show_summary)
     
     # Train if data provided
-    history = None
+    trained_model = None
     if train_data is not None:
-        history = train_experiment(model, experiment_name, train_data, val_data)
+        trained_model = train_experiment(model, experiment_name, train_data, val_data)
     
     # Evaluate if test data provided
     test_results = None
     if test_data is not None:
         test_results = evaluate_experiment(model, test_data)
     
-    return model, history, test_results
+    return model, trained_model, test_results
 
 def run_all_experiments(train_data=None, val_data=None, test_data=None):
     """
@@ -134,11 +132,11 @@ def run_all_experiments(train_data=None, val_data=None, test_data=None):
         test_data: Test data (X_test, y_test) tuple or None
     
     Returns:
-        Dictionary mapping experiment names to results dict with model, history, test_results
+        Dictionary mapping experiment names to results dict with model, trained_model, test_results
     """
     results = {}
     for exp_name in EXPERIMENTS.keys():
-        model, history, test_results = run_experiment(
+        model, trained_model, test_results = run_experiment(
             exp_name, 
             train_data=train_data,
             val_data=val_data,
@@ -147,43 +145,36 @@ def run_all_experiments(train_data=None, val_data=None, test_data=None):
         )
         results[exp_name] = {
             'model': model,
-            'history': history,
+            'trained_model': trained_model,
             'test_results': test_results
         }
     return results
 
 # ============================================================================
-# MAIN
-# ============================================================================
 
 if __name__ == "__main__":
     import sys
     
-    # TODO: Load your data here
-    # X_train, y_train = ...
-    # X_val, y_val = ...
-    # X_test, y_test = ...
-    train_data = None  # (X_train, y_train)
-    val_data = None    # (X_val, y_val)
-    test_data = None   # (X_test, y_test)
-    
+    #loading the preprocessed data and making validation split
+    train_data, val_data, test_data = retrieve_data(
+        train_path="processed_dfire/train",  # TODO: update path after running process_dfire
+        test_path="processed_dfire/test",   # TODO: update path after running process_dfire
+        val_size=0.2
+    )
+
     # Run specific experiment or all experiments
     if len(sys.argv) > 1:
         experiment_name = sys.argv[1]
         
-        # Example: Use the convenience function (does everything)
-        model, history, test_results = run_experiment(
+        model, trained_model, test_results = run_experiment(
             experiment_name,
             train_data=train_data,
             val_data=val_data,
             test_data=test_data
         )
         
-        # Alternative: Use separate functions for more control
-        # model = setup_experiment(experiment_name)
-        # history = train_experiment(model, experiment_name, train_data, val_data)
-        # test_results = evaluate_experiment(model, test_data)
-        
+   # TODO: Add code to log experiment results
+
     else:
         # Run all experiments by default
         print("Running all experiments...")

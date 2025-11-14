@@ -1,5 +1,15 @@
 from cnn import MODEL_CONFIG, COMPILE_CONFIG, TRAIN_CONFIG
 
+# filters should get smaller
+# 128 is a fine starting point
+# plot loss vs epoch and accuracy vs epoch: good way to visualize the training process
+### shape of the curve is good information. looking for consistency
+
+#Kanagha will send random sampling splits
+
+
+# early stopping
+
 EXPERIMENTS = {
     'baseline': {
         'model_config': MODEL_CONFIG.copy(),
