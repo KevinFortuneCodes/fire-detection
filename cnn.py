@@ -3,6 +3,7 @@ from keras import layers, models
 from keras.optimizers import Adam
 from keras.losses import SparseCategoricalCrossentropy
 import numpy as np
+from sklearn.metrics import precision_score, recall_score, average_precision_score
 
 MODEL_CONFIG = {
     'input_shape': (32, 32, 3),
@@ -128,18 +129,3 @@ def train_model(model, train_data, val_data=None, config=TRAIN_CONFIG):
     )
     
     return trained_model
-
-def evaluate_model(model, test_data):
-    """
-    Evaluate the model on test data.
-    
-    Args:
-        model: Trained Keras model
-        test_data: Test data (X_test, y_test) tuple
-    
-    Returns:
-        Test loss and accuracy
-    """
-    X_test, y_test = test_data
-    test_loss, test_acc = model.evaluate(X_test, y_test, verbose=0)
-    return test_loss, test_acc

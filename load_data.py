@@ -156,4 +156,3 @@ def retrieve_data(train_path, test_path=None, val_size=0.2, random_state=42):
     
     return train_data, val_data, test_data
 
-

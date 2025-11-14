@@ -1,7 +1,7 @@
 from cnn import create_model, compile_model, train_model, evaluate_model
 from experiments import EXPERIMENTS
 from load_data import retrieve_data
-
+from evaluate import get_hyperparameters, log_results, evaluate_model
 
 def setup_experiment(experiment_name, show_summary=True):
     """
@@ -65,31 +65,40 @@ def train_experiment(model, experiment_name, train_data, val_data=None):
     
     return trained_model
 
-def evaluate_experiment(model, test_data):
+def evaluate_experiment(model, eval_data, data_type="Validation", 
+                        experiment_name=None, hyperparameters=None, 
+                        log_file="experiment_results.json"):
     """
-    Evaluate a trained model on test data.
+    Evaluate a trained model on evaluation data.
     
     Args:
         model: Trained Keras model
-        test_data: Test data (X_test, y_test) tuple
+        eval_data: Evaluation data (X_eval, y_eval) tuple
+        data_type: String describing the data type (e.g., "Validation", "Test")
+        experiment_name: Name of the experiment being evaluated
+        hyperparameters: Dictionary containing hyperparameters (model_config, compile_config, train_config)
+        log_file: Path to JSON file where results will be logged
     
     Returns:
-        Dictionary with test_loss and test_accuracy
+        Dictionary with test_loss, test_accuracy, precision, recall, and mAP
     """
     print(f"\n{'='*60}")
-    print("Evaluating Model...")
+    print(f"Evaluating Model on {data_type} Data...")
     print(f"{'='*60}")
     
-    test_loss, test_acc = evaluate_model(model, test_data)
-    test_results = {
-        'test_loss': test_loss,
-        'test_accuracy': test_acc
-    }
+    eval_results = evaluate_model(model, eval_data)
     
-    print(f"Test Loss: {test_loss:.4f}")
-    print(f"Test Accuracy: {test_acc:.4f}")
+    print(f"{data_type} Loss: {eval_results['test_loss']:.4f}")
+    print(f"{data_type} Accuracy: {eval_results['test_accuracy']:.4f}")
+    print(f"Precision: {eval_results['precision']:.4f}")
+    print(f"Recall: {eval_results['recall']:.4f}")
+    print(f"mAP (Mean Average Precision): {eval_results['mAP']:.4f}")
     
-    return test_results
+    # Log results to file if experiment_name is provided
+    if experiment_name is not None:
+        log_results(experiment_name, data_type, hyperparameters, eval_results, log_file)
+    
+    return eval_results
 
 def run_experiment(experiment_name, train_data=None, val_data=None, 
                    test_data=None, show_summary=True):
@@ -104,23 +113,39 @@ def run_experiment(experiment_name, train_data=None, val_data=None,
         show_summary: Whether to print model summary
     
     Returns:
-        Tuple of (model, trained_model, test_results)
-        Returns None for trained_model/test_results if training/evaluation not performed
+        Tuple of (model, trained_model, eval_results)
+        Returns None for trained_model/eval_results if training/evaluation not performed
+        Evaluates on test_data if provided, otherwise on val_data if provided
     """
     # Setup model
     model = setup_experiment(experiment_name, show_summary=show_summary)
+    
+    # Get hyperparameters from experiment config
+    hyperparameters = get_hyperparameters(experiment_name)
     
     # Train if data provided
     trained_model = None
     if train_data is not None:
         trained_model = train_experiment(model, experiment_name, train_data, val_data)
     
-    # Evaluate if test data provided
-    test_results = None
+    # Evaluate on test data if provided, otherwise on validation data
+    eval_results = None
     if test_data is not None:
-        test_results = evaluate_experiment(model, test_data)
+        eval_results = evaluate_experiment(
+            model, test_data, 
+            data_type="Test",
+            experiment_name=experiment_name,
+            hyperparameters=hyperparameters
+        )
+    elif val_data is not None:
+        eval_results = evaluate_experiment(
+            model, val_data, 
+            data_type="Validation",
+            experiment_name=experiment_name,
+            hyperparameters=hyperparameters
+        )
     
-    return model, trained_model, test_results
+    return model, trained_model, eval_results
 
 def run_all_experiments(train_data=None, val_data=None, test_data=None):
     """
@@ -132,11 +157,12 @@ def run_all_experiments(train_data=None, val_data=None, test_data=None):
         test_data: Test data (X_test, y_test) tuple or None
     
     Returns:
-        Dictionary mapping experiment names to results dict with model, trained_model, test_results
+        Dictionary mapping experiment names to results dict with model, trained_model, eval_results
+        Evaluates on test_data if provided, otherwise on val_data if provided
     """
     results = {}
     for exp_name in EXPERIMENTS.keys():
-        model, trained_model, test_results = run_experiment(
+        model, trained_model, eval_results = run_experiment(
             exp_name, 
             train_data=train_data,
             val_data=val_data,
@@ -146,7 +172,7 @@ def run_all_experiments(train_data=None, val_data=None, test_data=None):
         results[exp_name] = {
             'model': model,
             'trained_model': trained_model,
-            'test_results': test_results
+            'eval_results': eval_results
         }
     return results
 
@@ -166,15 +192,13 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         experiment_name = sys.argv[1]
         
-        model, trained_model, test_results = run_experiment(
+        model, trained_model, eval_results = run_experiment(
             experiment_name,
             train_data=train_data,
             val_data=val_data,
             test_data=test_data
         )
         
-   # TODO: Add code to log experiment results
-
     else:
         # Run all experiments by default
         print("Running all experiments...")
