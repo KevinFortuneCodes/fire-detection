@@ -1,0 +1,15 @@
+# Ignore python env
+.venv/
+
+# Ignore compiled python files
+__pycache__/
+*.pyc
+
+#Ignore DS_Store files
+.DS_Store
+
+# Ignore D-Fire
+D-Fire/
+
+# Ignore fire detection annotations
+dfire_detection_annotations.json
