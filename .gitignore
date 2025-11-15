@@ -10,4 +10,6 @@ __pycache__/
 
 # Ignore D-Fire
 D-Fire/
-processed_dfire/
+
+# Ignore fire detection annotations
+dfire_detection_annotations.json
