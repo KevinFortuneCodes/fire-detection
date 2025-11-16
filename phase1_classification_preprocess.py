@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import csv
 import logging
+import random
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence, Tuple
@@ -23,9 +24,11 @@ from typing import Dict, Iterable, List, Sequence, Tuple
 from PIL import Image, ImageOps
 
 # Default semantic mapping deduced from the D-Fire labels
-LABEL_MAP = {0: "smoke", 1: "fire"}
-NO_LABEL_IDX = 2
-NO_LABEL_NAME = "no_label"
+LABEL_MAP = {1: "fire", 2: "smoke", 3: "nothing"}
+FIRE_LABEL_IDX = 1
+SMOKE_LABEL_IDX = 2
+NO_LABEL_IDX = 3
+NO_LABEL_NAME = LABEL_MAP[NO_LABEL_IDX]
 VALID_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
 
 
@@ -62,7 +65,11 @@ def parse_args() -> argparse.Namespace:
         "--splits",
         nargs="+",
         default=("train", "test"),
-        help="Dataset splits to process (must exist under dataset-dir).",
+        help=(
+            "Dataset splits to process. If a requested split (e.g., validation) "
+            "does not exist on disk it will be derived from the training split "
+            "using --val-percent."
+        ),
     )
     parser.add_argument(
         "--image-size",
@@ -83,12 +90,6 @@ def parse_args() -> argparse.Namespace:
         help="YOLO class id that is considered a 'fire' sample.",
     )
     parser.add_argument(
-        "--max-images-per-split",
-        type=int,
-        default=None,
-        help="Optional cap on number of images processed per split (useful for smoke tests).",
-    )
-    parser.add_argument(
         "--skip-existing",
         action="store_true",
         help="Only process images that are missing from the output directory.",
@@ -98,6 +99,24 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=200,
         help="Print a progress message after this many processed images.",
+    )
+    parser.add_argument(
+        "--resample-percent",
+        type=float,
+        default=None,
+        help="Optional percentage (0-100] of images to keep per split while preserving class ratios.",
+    )
+    parser.add_argument(
+        "--resample-seed",
+        type=int,
+        default=1234,
+        help="Random seed used when --resample-percent is specified.",
+    )
+    parser.add_argument(
+        "--val-percent",
+        type=float,
+        default=10.0,
+        help="Percentage of the training split to reserve for a derived validation split.",
     )
     return parser.parse_args()
 
@@ -143,9 +162,97 @@ def determine_label(
 ) -> Tuple[int, str]:
     if not boxes:
         return NO_LABEL_IDX, NO_LABEL_NAME
-    label_idx = 1 if any(cls == positive_class for cls, *_ in boxes) else 0
-    label_name = LABEL_MAP.get(label_idx, f"class_{label_idx}")
+    label_idx = (
+        FIRE_LABEL_IDX
+        if any(cls == positive_class for cls, *_ in boxes)
+        else SMOKE_LABEL_IDX
+    )
+    label_name = LABEL_MAP[label_idx]
     return label_idx, label_name
+
+
+def resample_records(
+    records: List[Dict[str, object]], percent: float | None, seed: int
+) -> List[Dict[str, object]]:
+    if percent is None or percent >= 100:
+        return records
+    if percent <= 0:
+        raise ValueError("--resample-percent must be > 0")
+
+    rng = random.Random(seed)
+    fraction = percent / 100.0
+    buckets: Dict[int, List[Dict[str, object]]] = {}
+    for record in records:
+        buckets.setdefault(record["label_idx"], []).append(record)
+
+    sampled: List[Dict[str, object]] = []
+    for label_idx, bucket in buckets.items():
+        if not bucket:
+            continue
+        target = max(1, int(round(len(bucket) * fraction)))
+        target = min(target, len(bucket))
+        if target >= len(bucket):
+            sampled.extend(bucket)
+        else:
+            sampled.extend(rng.sample(bucket, target))
+    return sampled
+
+
+def collect_split_records(
+    dataset_dir: Path, split: str, positive_class: int
+) -> List[Dict[str, object]]:
+    image_dir = dataset_dir / split / "images"
+    label_dir = dataset_dir / split / "labels"
+    if not image_dir.exists():
+        raise FileNotFoundError(f"Missing images directory: {image_dir}")
+    if not label_dir.exists():
+        raise FileNotFoundError(f"Missing labels directory: {label_dir}")
+
+    records: List[Dict[str, object]] = []
+    for image_path in collect_images(image_dir):
+        label_path = label_dir / f"{image_path.stem}.txt"
+        boxes = read_label_file(label_path)
+        label_idx, label_name = determine_label(boxes, positive_class)
+        records.append(
+            {
+                "image_path": image_path,
+                "label_path": label_path,
+                "boxes": boxes,
+                "label_idx": label_idx,
+                "label_name": label_name,
+            }
+        )
+    return records
+
+
+def derive_validation_records(
+    records: List[Dict[str, object]], val_percent: float, seed: int
+) -> Tuple[List[Dict[str, object]], List[Dict[str, object]]]:
+    if val_percent <= 0:
+        raise ValueError("--val-percent must be > 0 to derive validation split.")
+    if not records:
+        return records, []
+
+    rng = random.Random(seed + 101)
+    fraction = val_percent / 100.0
+    buckets: Dict[int, List[Dict[str, object]]] = {}
+    for record in records:
+        buckets.setdefault(record["label_idx"], []).append(record)
+
+    val_records: List[Dict[str, object]] = []
+    remaining_records: List[Dict[str, object]] = []
+    for label_idx, bucket in buckets.items():
+        bucket_copy = bucket[:]
+        rng.shuffle(bucket_copy)
+        target = int(round(len(bucket_copy) * fraction))
+        target = min(max(target, 0), len(bucket_copy))
+        val_records.extend(bucket_copy[:target])
+        remaining_records.extend(bucket_copy[target:])
+
+    if not val_records:
+        return records, []
+
+    return remaining_records, val_records
 
 
 def process_image(image_path: Path, size: int, crop_strategy: str) -> Image.Image:
@@ -188,33 +295,23 @@ def write_metadata_csv(samples: Iterable[SampleMeta], csv_path: Path) -> None:
             )
 
 
-def process_split(
+def process_records(
     split: str,
-    dataset_dir: Path,
+    records: List[Dict[str, object]],
     output_dir: Path,
     image_size: int,
     crop_strategy: str,
-    positive_class: int,
-    max_images: int | None,
     skip_existing: bool,
     log_every: int,
 ) -> List[SampleMeta]:
-    image_dir = dataset_dir / split / "images"
-    label_dir = dataset_dir / split / "labels"
-    if not image_dir.exists():
-        raise FileNotFoundError(f"Missing images directory: {image_dir}")
-    if not label_dir.exists():
-        raise FileNotFoundError(f"Missing labels directory: {label_dir}")
-
     samples: List[SampleMeta] = []
-    images = collect_images(image_dir)
-    if max_images:
-        images = images[:max_images]
-
-    for idx, image_path in enumerate(images, start=1):
-        label_path = label_dir / f"{image_path.stem}.txt"
-        boxes = read_label_file(label_path)
-        label_idx, label_name = determine_label(boxes, positive_class)
+    total = len(records)
+    for idx, record in enumerate(records, start=1):
+        image_path = record["image_path"]
+        label_path = record["label_path"]
+        boxes = record["boxes"]
+        label_idx = record["label_idx"]
+        label_name = record["label_name"]
 
         dest_dir = output_dir / split / label_name
         ensure_dir(dest_dir)
@@ -243,12 +340,12 @@ def process_split(
             )
         )
 
-        if idx % log_every == 0:
+        if log_every and idx % log_every == 0:
             logging.info(
-                "[%s] processed %d/%d images", split, idx, len(images)
+                "[%s] processed %d/%d images", split, idx, total
             )
 
-    logging.info("[%s] completed %d images.", split, len(images))
+    logging.info("[%s] completed %d images.", split, total)
     return samples
 
 
@@ -256,17 +353,78 @@ def main() -> None:
     args = parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
+    split_data: Dict[str, Dict[str, object]] = {}
+    missing_splits: List[str] = []
+    for split in args.splits:
+        split_dir = args.dataset_dir / split
+        if split_dir.exists():
+            records = collect_split_records(args.dataset_dir, split, args.positive_class)
+            original_count = len(records)
+            resampled = resample_records(records, args.resample_percent, args.resample_seed)
+            if original_count and len(resampled) != original_count:
+                logging.info(
+                    "[%s] resampled %d → %d images (%.1f%%)",
+                    split,
+                    original_count,
+                    len(resampled),
+                    (len(resampled) / original_count) * 100,
+                )
+            split_data[split] = {
+                "records": resampled,
+                "original_count": original_count,
+            }
+        else:
+            missing_splits.append(split)
+
+    for split in missing_splits:
+        split_lower = split.lower()
+        if split_lower in {"val", "validation"}:
+            if "train" not in split_data:
+                raise ValueError(
+                    f"Cannot derive {split} split because training split is unavailable."
+                )
+            train_records = split_data["train"]["records"]
+            remaining, val_records = derive_validation_records(
+                train_records, args.val_percent, args.resample_seed
+            )
+            if not val_records:
+                logging.warning(
+                    "Unable to derive %s split because training split is too small.",
+                    split,
+                )
+                split_data[split] = {
+                    "records": [],
+                    "original_count": 0,
+                }
+            else:
+                split_data["train"]["records"] = remaining
+                split_data[split] = {
+                    "records": val_records,
+                    "original_count": len(val_records),
+                }
+                logging.info(
+                    "[%s] derived %d samples (%.1f%% of train).",
+                    split,
+                    len(val_records),
+                    args.val_percent,
+                )
+        else:
+            raise FileNotFoundError(
+                f"Requested split '{split}' does not exist under {args.dataset_dir}."
+            )
+
     all_samples: List[SampleMeta] = []
     stats: Dict[str, Dict[str, int]] = {}
     for split in args.splits:
-        split_samples = process_split(
+        data = split_data.get(split)
+        if data is None:
+            continue
+        split_samples = process_records(
             split=split,
-            dataset_dir=args.dataset_dir,
+            records=data["records"],
             output_dir=args.output_dir,
             image_size=args.image_size,
             crop_strategy=args.crop_strategy,
-            positive_class=args.positive_class,
-            max_images=args.max_images_per_split,
             skip_existing=args.skip_existing,
             log_every=args.log_every,
         )
