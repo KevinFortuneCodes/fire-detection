@@ -1,7 +1,8 @@
-from cnn import create_model, compile_model, train_model, evaluate_model
+from cnn import create_model, compile_model, train_model
 from experiments import EXPERIMENTS
 from load_data import retrieve_data
-from evaluate import get_hyperparameters, log_results, evaluate_model
+from evaluate import get_hyperparameters, log_results, evaluate_model, plot_training_history
+from pathlib import Path
 
 def setup_experiment(experiment_name, show_summary=True):
     """
@@ -45,7 +46,7 @@ def train_experiment(model, experiment_name, train_data, val_data=None):
         val_data: Validation data (X_val, y_val) tuple or None
     
     Returns:
-        Trained model object
+        Trained model object (History from model.fit())
     """
     if experiment_name not in EXPERIMENTS:
         raise ValueError(f"Unknown experiment: {experiment_name}")
@@ -62,6 +63,33 @@ def train_experiment(model, experiment_name, train_data, val_data=None):
         val_data=val_data,
         config=experiment['train_config']
     )
+    
+    # Plot training history if enabled (default: True)
+    train_config = experiment.get('train_config', {})
+    if train_config.get('plot_history', True):
+        save_path = train_config.get('plot_save_path', None)
+        # If save_path is a directory or None, generate unique filename with experiment name
+        if save_path is None:
+            # Default to 'plots' directory
+            save_path = Path('plots')
+            save_path.mkdir(parents=True, exist_ok=True)
+            # Generate unique filename with experiment name and timestamp
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            save_path = save_path / f'{experiment_name}_training_history_{timestamp}.png'
+        else:
+            save_path = Path(save_path)
+            # Check if it's an existing directory
+            if save_path.exists() and save_path.is_dir():
+                # It's a directory - generate unique filename
+                from datetime import datetime
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                save_path = save_path / f'{experiment_name}_training_history_{timestamp}.png'
+            else:
+                # User provided a specific file path - use it as-is
+                save_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        plot_training_history(trained_model, experiment_name=experiment_name, save_path=str(save_path))
     
     return trained_model
 
@@ -80,7 +108,7 @@ def evaluate_experiment(model, eval_data, data_type="Validation",
         log_file: Path to JSON file where results will be logged
     
     Returns:
-        Dictionary with test_loss, test_accuracy, precision, recall, and mAP
+        Dictionary with test_loss, test_accuracy, precision, recall, f1_score, and mAP
     """
     print(f"\n{'='*60}")
     print(f"Evaluating Model on {data_type} Data...")
@@ -90,9 +118,46 @@ def evaluate_experiment(model, eval_data, data_type="Validation",
     
     print(f"{data_type} Loss: {eval_results['test_loss']:.4f}")
     print(f"{data_type} Accuracy: {eval_results['test_accuracy']:.4f}")
-    print(f"Precision: {eval_results['precision']:.4f}")
-    print(f"Recall: {eval_results['recall']:.4f}")
-    print(f"mAP (Mean Average Precision): {eval_results['mAP']:.4f}")
+    
+    # Print class distribution for context
+    print(f"\nClass Distribution (support):")
+    for class_name in ['fire', 'smoke', 'nothing']:
+        support = eval_results['class_support'][class_name]
+        total = sum(eval_results['class_support'].values())
+        pct = (support / total) * 100 if total > 0 else 0
+        print(f"  {class_name.capitalize()}: {support} ({pct:.1f}%)")
+    
+    # Print weighted metrics (better for imbalanced classes)
+    print(f"\nOverall Metrics (weighted by class frequency - recommended for imbalanced classes):")
+    print(f"  Precision: {eval_results['precision_weighted']:.4f}")
+    print(f"  Recall: {eval_results['recall_weighted']:.4f}")
+    print(f"  F1-Score: {eval_results['f1_score_weighted']:.4f}")
+    
+    # Print macro metrics for comparison
+    print(f"\nOverall Metrics (macro-averaged - treats all classes equally):")
+    print(f"  Precision: {eval_results['precision_macro']:.4f}")
+    print(f"  Recall: {eval_results['recall_macro']:.4f}")
+    print(f"  F1-Score: {eval_results['f1_score_macro']:.4f}")
+    
+    print(f"\n  mAP (Mean Average Precision): {eval_results['mAP']:.4f}")
+    
+    # Print per-class metrics (essential for imbalanced classes)
+    print(f"\nPer-Class Metrics (critical for understanding imbalanced class performance):")
+    for class_name in ['fire', 'smoke', 'nothing']:
+        support = eval_results['class_support'][class_name]
+        print(f"  {class_name.capitalize()} (n={support}):")
+        print(f"    Precision: {eval_results['precision_per_class'][class_name]:.4f}")
+        print(f"    Recall: {eval_results['recall_per_class'][class_name]:.4f}")
+        print(f"    F1-Score: {eval_results['f1_per_class'][class_name]:.4f}")
+    
+    # Print confusion matrix
+    print(f"\nConfusion Matrix:")
+    print(f"                Predicted")
+    print(f"              fire smoke nothing")
+    cm = eval_results['confusion_matrix']
+    class_names = ['fire', 'smoke', 'nothing']
+    for i, class_name in enumerate(class_names):
+        print(f"{class_name:8} {cm[i]}")
     
     # Log results to file if experiment_name is provided
     if experiment_name is not None:
@@ -147,6 +212,26 @@ def run_experiment(experiment_name, train_data=None, val_data=None,
     
     return model, trained_model, eval_results
 
+def clear_gpu_memory():
+    """Clear GPU memory to prevent OOM errors between experiments."""
+    import tensorflow as tf
+    import gc
+    
+    # Clear TensorFlow session/Keras backend
+    tf.keras.backend.clear_session()
+    
+    # Force garbage collection
+    gc.collect()
+    
+    # Try to clear GPU memory (if available)
+    try:
+        gpus = tf.config.experimental.list_physical_devices('GPU')
+        if gpus:
+            for gpu in gpus:
+                tf.config.experimental.reset_memory_stats(gpu)
+    except:
+        pass
+
 def run_all_experiments(train_data=None, val_data=None, test_data=None):
     """
     Run all defined experiments.
@@ -162,30 +247,142 @@ def run_all_experiments(train_data=None, val_data=None, test_data=None):
     """
     results = {}
     for exp_name in EXPERIMENTS.keys():
-        model, trained_model, eval_results = run_experiment(
-            exp_name, 
-            train_data=train_data,
-            val_data=val_data,
-            test_data=test_data,
-            show_summary=True
-        )
-        results[exp_name] = {
-            'model': model,
-            'trained_model': trained_model,
-            'eval_results': eval_results
-        }
+        try:
+            # Clear GPU memory before each experiment
+            clear_gpu_memory()
+            
+            print(f"\n{'='*60}")
+            print(f"Starting experiment: {exp_name}")
+            print(f"{'='*60}")
+            
+            model, trained_model, eval_results = run_experiment(
+                exp_name, 
+                train_data=train_data,
+                val_data=val_data,
+                test_data=test_data,
+                show_summary=True
+            )
+            results[exp_name] = {
+                'model': model,
+                'trained_model': trained_model,
+                'eval_results': eval_results
+            }
+            print(f"\n✓ Successfully completed experiment: {exp_name}")
+            
+        except Exception as e:
+            error_msg = str(e)
+            if "OOM" in error_msg or "ResourceExhausted" in error_msg:
+                print(f"\n⚠ Experiment '{exp_name}' failed due to GPU out-of-memory (OOM)")
+                print(f"   This experiment requires more GPU memory than available.")
+                print(f"   Consider reducing batch size or model size for this experiment.")
+                results[exp_name] = {
+                    'error': 'OOM',
+                    'error_message': error_msg
+                }
+            else:
+                print(f"\n✗ Experiment '{exp_name}' failed with error: {error_msg}")
+                results[exp_name] = {
+                    'error': 'Training failed',
+                    'error_message': error_msg
+                }
+            
+            # Clear memory even after failure
+            clear_gpu_memory()
+    
     return results
+
+def check_gpu_and_confirm():
+    """
+    Check GPU availability and prompt user to continue.
+    
+    Returns:
+        bool: True if user confirms to continue, False otherwise
+    """
+    import tensorflow as tf
+    
+    # Check GPU availability
+    print("\n" + "="*60)
+    print("GPU/Device Check")
+    print("="*60)
+    print(f"TensorFlow version: {tf.__version__}")
+    
+    gpus = tf.config.list_physical_devices('GPU')
+    cpus = tf.config.list_physical_devices('CPU')
+    
+    print(f"\nGPUs available: {len(gpus)}")
+    if gpus:
+        for i, gpu in enumerate(gpus):
+            print(f"  GPU {i}: {gpu.name}")
+            # Get GPU details if possible
+            try:
+                gpu_details = tf.config.experimental.get_device_details(gpu)
+                if gpu_details:
+                    print(f"    Details: {gpu_details}")
+            except:
+                pass
+    else:
+        print("  No GPUs detected. Training will use CPU.")
+    
+    print(f"\nCPUs available: {len(cpus)}")
+    for i, cpu in enumerate(cpus):
+        print(f"  CPU {i}: {cpu.name}")
+    
+    # Show which device will be used
+    if gpus:
+        print(f"\n✓ GPU will be used for training")
+    else:
+        print(f"\n⚠ CPU will be used for training (no GPU detected)")
+    
+    print("="*60)
+    
+    # Prompt user to continue
+    response = input("\nContinue with experiment? (yes/no): ").strip().lower()
+    if response not in ['yes', 'y']:
+        print("Experiment cancelled.")
+        return False
+    
+    return True
 
 # ============================================================================
 
 if __name__ == "__main__":
     import sys
+    import os
+    import random
+    import numpy as np
+    import tensorflow as tf
     
-    #loading the preprocessed data and making validation split
+    # Set random seeds for reproducibility
+    SEED = 42
+    os.environ['PYTHONHASHSEED'] = '0'
+    random.seed(SEED)
+    np.random.seed(SEED)
+    tf.random.set_seed(SEED)
+    
+    # Configure GPU memory growth to prevent OOM errors
+    # This allows TensorFlow to allocate GPU memory incrementally instead of all at once
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        try:
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+        except RuntimeError as e:
+            # Memory growth must be set before GPUs have been initialized
+            print(f"Warning: Could not set GPU memory growth: {e}")
+    
+    # Check GPU and get user confirmation
+    if not check_gpu_and_confirm():
+        sys.exit(0)
+    
+    print("\n" + "="*60)
+    print("Loading data...")
+    print("="*60)
+    
+    #loading the preprocessed data from pre-defined splits
     train_data, val_data, test_data = retrieve_data(
-        train_path="processed_dfire/train",  # TODO: update path after running process_dfire
-        test_path="processed_dfire/test",   # TODO: update path after running process_dfire
-        val_size=0.2
+        train_path="processed_dfire/train",
+        val_path="processed_dfire/validation",
+        test_path=None
     )
 
     # Run specific experiment or all experiments

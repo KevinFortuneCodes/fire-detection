@@ -3,7 +3,6 @@ import numpy as np
 import tensorflow as tf
 from pathlib import Path
 from PIL import Image
-from sklearn.model_selection import train_test_split
 
 def load_data_from_csv(csv_path):
     """Load images and labels from a metadata CSV file."""
@@ -33,104 +32,89 @@ def load_data_from_csv(csv_path):
                 img_array = img_array / 255.0
                 images.append(img_array)
             
-            # Get label index
+            # Get label index and convert from 1-based (1,2,3) to 0-based (0,1,2) for TensorFlow
             label_idx = int(row['label_idx'])
-            labels.append(label_idx)
+            # Convert: fire=1->0, smoke=2->1, nothing=3->2
+            label_idx_0based = label_idx - 1
+            labels.append(label_idx_0based)
     
     X = np.array(images)
     y = np.array(labels)
-    # Return as numpy arrays (will convert to tensors after splitting if needed)
+    # Return as numpy arrays (will convert to tensors later)
     return (X, y)
 
-def load_data_from_directory(dir_path):
-    """Load images and labels from a directory structure (split/fire/ and split/no_fire/)."""
-    images = []
-    labels = []
-    
-    dir_path = Path(dir_path)
-    if not dir_path.exists():
-        raise FileNotFoundError(f"Directory not found: {dir_path}")
-    
-    # Look for fire and no_fire subdirectories
-    for label_name in ['fire', 'no_fire']:
-        label_dir = dir_path / label_name
-        if not label_dir.exists():
-            continue
-        
-        label_idx = 1 if label_name == 'fire' else 0
-        
-        # Load all images from this label directory
-        # Images are already processed: RGB, square, saved as PNG
-        for img_path in sorted(label_dir.glob('*.png')):
-            with Image.open(img_path) as img:
-                # Images are already RGB and square from process_dfire.py
-                img_array = np.array(img, dtype=np.float32)
-                # Normalize to [0, 1] range
-                img_array = img_array / 255.0
-                images.append(img_array)
-                labels.append(label_idx)
-    
-    X = np.array(images)
-    y = np.array(labels)
-    # Return as numpy arrays (will convert to tensors after splitting if needed)
-    return (X, y)
-
-def retrieve_data(train_path, test_path=None, val_size=0.2, random_state=42):
+def retrieve_data(train_path, test_path=None, val_path=None):
     '''
-    Retrieves outputs of "process_dfire.py" and converts into tensors for model training.
+    Retrieves outputs of "process_dfire.py" and returns as numpy arrays for model training.
+    Data is kept in CPU memory to prevent GPU OOM errors; TensorFlow handles GPU transfer during training.
     
-    Optionally splits training data into train/validation sets.
+    Loads validation data from val_path if provided.
 
     args:
-        train_path (string): filepath locating the train data (metadata CSV file or directory)
-        test_path (string): filepath locating the test data. If this is none, test process will not run
-        val_size (float): Proportion of training data to use for validation (default 0.2 = 20%).
-                         If None, no split is performed and all training data is returned.
-        random_state (int): Random seed for reproducibility
+        train_path (string): filepath to the train metadata CSV file, or directory containing train_metadata.csv
+        test_path (string): filepath to the test metadata CSV file, or directory containing test_metadata.csv. If None, test process will not run
+        val_path (string): filepath to the validation metadata CSV file, or directory containing validation_metadata.csv. If None, val_data will be None.
 
     returns:
-        train_data (tuple): (X_train, y_train) as TensorFlow tensors
-        val_data (tuple): (X_val, y_val) as TensorFlow tensors, or None if val_size is None
-        test_data (tuple): (X_test, y_test) as TensorFlow tensors, or None if test_path is None
+        train_data (tuple): (X_train, y_train) as numpy arrays (TensorFlow will handle GPU transfer during training)
+        val_data (tuple): (X_val, y_val) as numpy arrays, or None if val_path is None
+        test_data (tuple): (X_test, y_test) as numpy arrays, or None if test_path is None
     '''
-    # Determine if train_path is a CSV file or directory
+    # Load training data from CSV file
     train_path_obj = Path(train_path)
     if train_path_obj.is_file() and train_path_obj.suffix == '.csv':
         train_data = load_data_from_csv(train_path)
     elif train_path_obj.is_dir():
-        train_data = load_data_from_directory(train_path)
-    else:
-        # Try to find metadata CSV in the directory
-        csv_file = train_path_obj / 'train_metadata.csv'
+        # Look for metadata CSV in the parent directory (where phase1 writes them)
+        csv_file = train_path_obj.parent / 'train_metadata.csv'
         if csv_file.exists():
             train_data = load_data_from_csv(csv_file)
         else:
-            train_data = load_data_from_directory(train_path)
-    
-    # Split training data into train/val if requested (before converting to tensors)
-    val_data = None
-    if val_size is not None and val_size > 0:
-        X, y = train_data
-        # Use stratified split to maintain class balance
-        X_train, X_val, y_train, y_val = train_test_split(
-            X, y,
-            test_size=val_size,
-            random_state=random_state,
-            stratify=y  # Maintains class distribution
-        )
-        # Convert to tensors after splitting
-        X_train = tf.convert_to_tensor(X_train, dtype=tf.float32)
-        y_train = tf.convert_to_tensor(y_train, dtype=tf.int32)
-        X_val = tf.convert_to_tensor(X_val, dtype=tf.float32)
-        y_val = tf.convert_to_tensor(y_val, dtype=tf.int32)
-        train_data = (X_train, y_train)
-        val_data = (X_val, y_val)
+            # Fallback: look in the directory itself
+            csv_file = train_path_obj / 'train_metadata.csv'
+            if csv_file.exists():
+                train_data = load_data_from_csv(csv_file)
+            else:
+                raise FileNotFoundError(f"Train metadata CSV not found at {train_path_obj.parent}/train_metadata.csv or {csv_file}")
     else:
-        # Convert entire training set to tensors
-        X, y = train_data
-        X = tf.convert_to_tensor(X, dtype=tf.float32)
-        y = tf.convert_to_tensor(y, dtype=tf.int32)
-        train_data = (X, y)
+        raise FileNotFoundError(f"Train path must be a CSV file or directory: {train_path}")
+    
+    # Load validation data from val_path if provided
+    val_data = None
+    if val_path is not None:
+        # Load validation data from the provided path
+        val_path_obj = Path(val_path)
+        if val_path_obj.is_file() and val_path_obj.suffix == '.csv':
+            val_data = load_data_from_csv(val_path)
+        elif val_path_obj.is_dir():
+            # Look for metadata CSV in the parent directory (where phase1 writes them)
+            csv_file = val_path_obj.parent / 'validation_metadata.csv'
+            if csv_file.exists():
+                val_data = load_data_from_csv(csv_file)
+            else:
+                # Fallback: look in the directory itself
+                csv_file = val_path_obj / 'validation_metadata.csv'
+                if csv_file.exists():
+                    val_data = load_data_from_csv(csv_file)
+                else:
+                    raise FileNotFoundError(f"Validation metadata CSV not found at {val_path_obj.parent}/validation_metadata.csv or {csv_file}")
+        else:
+            raise FileNotFoundError(f"Validation path must be a CSV file or directory: {val_path}")
+        
+        # Keep validation data as numpy arrays (TensorFlow will handle GPU transfer during training)
+        # Converting to tensors here causes OOM by trying to allocate all data on GPU at once
+        X_val, y_val = val_data
+        # Ensure correct dtypes for TensorFlow
+        X_val = np.array(X_val, dtype=np.float32)
+        y_val = np.array(y_val, dtype=np.int32)
+        val_data = (X_val, y_val)
+    
+    # Keep training data as numpy arrays (TensorFlow will handle GPU transfer during training)
+    X, y = train_data
+    # Ensure correct dtypes for TensorFlow
+    X = np.array(X, dtype=np.float32)
+    y = np.array(y, dtype=np.int32)
+    train_data = (X, y)
     
     # Load test data if provided
     test_data = None
@@ -139,19 +123,25 @@ def retrieve_data(train_path, test_path=None, val_size=0.2, random_state=42):
         if test_path_obj.is_file() and test_path_obj.suffix == '.csv':
             test_data = load_data_from_csv(test_path)
         elif test_path_obj.is_dir():
-            test_data = load_data_from_directory(test_path)
-        else:
-            # Try to find metadata CSV in the directory
-            csv_file = test_path_obj / 'test_metadata.csv'
+            # Look for metadata CSV in the parent directory (where phase1 writes them)
+            csv_file = test_path_obj.parent / 'test_metadata.csv'
             if csv_file.exists():
                 test_data = load_data_from_csv(csv_file)
             else:
-                test_data = load_data_from_directory(test_path)
+                # Fallback: look in the directory itself
+                csv_file = test_path_obj / 'test_metadata.csv'
+                if csv_file.exists():
+                    test_data = load_data_from_csv(csv_file)
+                else:
+                    raise FileNotFoundError(f"Test metadata CSV not found at {test_path_obj.parent}/test_metadata.csv or {csv_file}")
+        else:
+            raise FileNotFoundError(f"Test path must be a CSV file or directory: {test_path}")
         
-        # Convert test data to tensors
+        # Keep test data as numpy arrays (TensorFlow will handle GPU transfer during evaluation)
         X_test, y_test = test_data
-        X_test = tf.convert_to_tensor(X_test, dtype=tf.float32)
-        y_test = tf.convert_to_tensor(y_test, dtype=tf.int32)
+        # Ensure correct dtypes for TensorFlow
+        X_test = np.array(X_test, dtype=np.float32)
+        y_test = np.array(y_test, dtype=np.int32)
         test_data = (X_test, y_test)
     
     return train_data, val_data, test_data

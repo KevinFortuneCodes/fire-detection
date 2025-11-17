@@ -1,6 +1,5 @@
 pillow>=10.0.0
 matplotlib>=3.7.0
-numpy>=1.24.0
-tensorflow
-keras
+numpy>=1.21.0
+tensorflow>=2.10.0,<2.11.0
 scikit-learn

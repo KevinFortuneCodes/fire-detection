@@ -1,22 +1,23 @@
 import tensorflow as tf
-from keras import layers, models
-from keras.optimizers import Adam
-from keras.losses import SparseCategoricalCrossentropy
+from tensorflow import keras
+from tensorflow.keras import layers, models
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.losses import SparseCategoricalCrossentropy
 import numpy as np
 from sklearn.metrics import precision_score, recall_score, average_precision_score
 
 MODEL_CONFIG = {
-    'input_shape': (32, 32, 3),
+    'input_shape': (256, 256, 3),  # Matches phase1 preprocessing default image size
     'conv_layers': [
         {'filters': 32, 'kernel_size': (3, 3), 'activation': 'relu'},
         {'filters': 64, 'kernel_size': (3, 3), 'activation': 'relu'},
-        {'filters': 64, 'kernel_size': (3, 3), 'activation': 'relu'},
+        {'filters': 128, 'kernel_size': (3, 3), 'activation': 'relu'},  # Increased from 64 to 128
     ],
-    'pool_size': (2, 2),
-    'dense_units': [64],
-    'output_units': 2, # number of classifications
+    'pool_size': (2, 2),  # Standard 2x2 max pooling (halves spatial dimensions)
+    'dense_units': [128],  # Increased from 64 to 128 to match final conv layer
+    'output_units': 3,  # 3 classes: fire, smoke, nothing
     'output_activation': None,
-    'dropout_rate': 0.0,
+    'dropout_rate': 0.2,  # Small default dropout for regularization (131k features → 128 units)
 }
 
 COMPILE_CONFIG = {
@@ -28,13 +29,13 @@ COMPILE_CONFIG = {
 
 TRAIN_CONFIG = {
     'epochs': 10,
-    'batch_size': 32,
-    'verbose': 1
+    'batch_size': 16,  # Reduced from 32 to prevent GPU OOM errors
+    'validation_batch_size': 4,  # Very small batch size for validation to reduce GPU memory during evaluation
+    'verbose': 1,
+    'shuffle': True  # Shuffle training data each epoch
 }
 
-# need to convert torch tensor
-# download the first link in the downloads page
-# 
+
 
 def create_model(config=None):
     """
@@ -120,12 +121,30 @@ def train_model(model, train_data, val_data=None, config=TRAIN_CONFIG):
     X_train, y_train = train_data
     validation_data = val_data if val_data else None
     
+    # Use smaller batch size for validation if specified to reduce GPU memory
+    validation_batch_size = config.get('validation_batch_size', config['batch_size'])
+    
+    # Optionally skip validation during training if memory is too constrained
+    # Validation can be done separately after training
+    if config.get('skip_validation_during_training', False):
+        validation_data = None
+        print("Warning: Skipping validation during training to save GPU memory.")
+        print("         You can evaluate the model separately after training.")
+    
+    fit_kwargs = {
+        'epochs': config['epochs'],
+        'batch_size': config['batch_size'],
+        'verbose': config['verbose'],
+        'shuffle': config.get('shuffle', True)
+    }
+    
+    if validation_data is not None:
+        fit_kwargs['validation_data'] = validation_data
+        fit_kwargs['validation_batch_size'] = validation_batch_size
+    
     trained_model = model.fit(
         X_train, y_train,
-        validation_data=validation_data,
-        epochs=config['epochs'],
-        batch_size=config['batch_size'],
-        verbose=config['verbose']
+        **fit_kwargs
     )
     
     return trained_model

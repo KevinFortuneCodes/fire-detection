@@ -5,11 +5,15 @@ from datetime import datetime
 from pathlib import Path
 import tensorflow as tf
 import numpy as np
-from sklearn.metrics import precision_score, recall_score, average_precision_score
+import matplotlib.pyplot as plt
+from sklearn.metrics import (
+    precision_score, recall_score, average_precision_score, f1_score,
+    confusion_matrix, classification_report
+)
 
 def evaluate_model(model, test_data):
     """
-    Evaluate the model on test data.
+    Evaluate the model on test data for 3-class classification (fire, smoke, nothing).
     
     Args:
         model: Trained Keras model
@@ -19,9 +23,19 @@ def evaluate_model(model, test_data):
         Dictionary containing:
         - test_loss: Loss on test set
         - test_accuracy: Accuracy on test set
-        - precision: Precision score
-        - recall: Recall score
-        - mAP: Mean Average Precision (Average Precision for binary classification)
+        - precision_macro: Precision (macro-averaged, treats all classes equally)
+        - recall_macro: Recall (macro-averaged)
+        - f1_score_macro: F1-score (macro-averaged)
+        - precision_weighted: Precision (weighted by class frequency, better for imbalanced classes)
+        - recall_weighted: Recall (weighted by class frequency)
+        - f1_score_weighted: F1-score (weighted by class frequency)
+        - precision, recall, f1_score: Legacy fields (using weighted values)
+        - mAP: Mean Average Precision (mean of per-class average precision scores)
+        - precision_per_class: Dict with precision for each class (fire, smoke, nothing)
+        - recall_per_class: Dict with recall for each class (fire, smoke, nothing)
+        - f1_per_class: Dict with F1-score for each class (fire, smoke, nothing)
+        - class_support: Dict with number of samples per class
+        - confusion_matrix: 3x3 confusion matrix as list of lists
     """
     X_test, y_test = test_data
     
@@ -43,21 +57,75 @@ def evaluate_model(model, test_data):
     else:
         y_test_np = y_test
     
-    # Calculate precision and recall
-    precision = precision_score(y_test_np, y_pred, average='binary', zero_division=0)
-    recall = recall_score(y_test_np, y_pred, average='binary', zero_division=0)
+    # Calculate precision and recall with different averaging strategies
+    # Macro: unweighted mean of per-class metrics (treats all classes equally)
+    # Weighted: mean weighted by class support (better for imbalanced classes)
+    precision_macro = precision_score(y_test_np, y_pred, average='macro', zero_division=0)
+    recall_macro = recall_score(y_test_np, y_pred, average='macro', zero_division=0)
+    f1_macro = f1_score(y_test_np, y_pred, average='macro', zero_division=0)
     
-    # Calculate mAP (Average Precision for binary classification)
-    # Use probabilities for the positive class (class 1 = fire or smoke)
-    y_pred_probs_positive = y_pred_probs[:, 1]  # Probabilities for fire class
-    mAP = average_precision_score(y_test_np, y_pred_probs_positive)
+    precision_weighted = precision_score(y_test_np, y_pred, average='weighted', zero_division=0)
+    recall_weighted = recall_score(y_test_np, y_pred, average='weighted', zero_division=0)
+    f1_weighted = f1_score(y_test_np, y_pred, average='weighted', zero_division=0)
+    
+    # Calculate per-class metrics for detailed analysis (essential for imbalanced classes)
+    precision_per_class = precision_score(y_test_np, y_pred, average=None, zero_division=0)
+    recall_per_class = recall_score(y_test_np, y_pred, average=None, zero_division=0)
+    f1_per_class = f1_score(y_test_np, y_pred, average=None, zero_division=0)
+    
+    # Class names for 3-class classification: fire, smoke, nothing
+    class_names = ['fire', 'smoke', 'nothing']
+    
+    # Calculate class support (number of samples per class) for context
+    from collections import Counter
+    class_counts = Counter(y_test_np)
+    class_support = {class_names[i]: int(class_counts.get(i, 0)) 
+                     for i in range(len(class_names))}
+    
+    # Calculate confusion matrix
+    cm = confusion_matrix(y_test_np, y_pred)
+    
+    # Calculate mAP (Mean Average Precision for multi-class)
+    # Note: mAP is more commonly used in object detection, but we compute it here
+    # as the mean of per-class average precision scores (one-vs-rest approach)
+    num_classes = y_pred_probs.shape[1]
+    ap_scores = []
+    for class_idx in range(num_classes):
+        # Create binary labels for this class
+        y_true_binary = (y_test_np == class_idx).astype(int)
+        y_pred_probs_class = y_pred_probs[:, class_idx]
+        if y_true_binary.sum() > 0:  # Only compute if class exists in test set
+            ap = average_precision_score(y_true_binary, y_pred_probs_class)
+            ap_scores.append(ap)
+    mAP = np.mean(ap_scores) if ap_scores else 0.0
     
     results = {
         'test_loss': float(test_loss),
         'test_accuracy': float(test_acc),
-        'precision': float(precision),
-        'recall': float(recall),
-        'mAP': float(mAP)
+        # Macro-averaged metrics (treat all classes equally)
+        'precision_macro': float(precision_macro),
+        'recall_macro': float(recall_macro),
+        'f1_score_macro': float(f1_macro),
+        # Weighted-averaged metrics (weighted by class frequency - better for imbalanced classes)
+        'precision_weighted': float(precision_weighted),
+        'recall_weighted': float(recall_weighted),
+        'f1_score_weighted': float(f1_weighted),
+        # Legacy fields (keeping for backward compatibility, using weighted as default)
+        'precision': float(precision_weighted),
+        'recall': float(recall_weighted),
+        'f1_score': float(f1_weighted),
+        'mAP': float(mAP),
+        # Per-class metrics (essential for imbalanced classes)
+        'precision_per_class': {class_names[i]: float(precision_per_class[i]) 
+                               for i in range(len(class_names))},
+        'recall_per_class': {class_names[i]: float(recall_per_class[i]) 
+                            for i in range(len(class_names))},
+        'f1_per_class': {class_names[i]: float(f1_per_class[i]) 
+                        for i in range(len(class_names))},
+        # Class support (number of samples per class)
+        'class_support': class_support,
+        # Confusion matrix (as list of lists for JSON serialization)
+        'confusion_matrix': cm.tolist()
     }
     
     return results
@@ -169,3 +237,51 @@ def log_results(experiment_name, data_type, hyperparameters, results, log_file="
         print(f"\nResults logged to {log_file}")
     except (IOError, TypeError) as e:
         print(f"\nWarning: Could not write to log file {log_file}: {e}")
+
+def plot_training_history(history, experiment_name=None, save_path=None):
+    """
+    Plot training and validation loss and accuracy over epochs.
+    
+    Args:
+        history: Keras History object returned from model.fit()
+        experiment_name: Optional name for the experiment (used in title)
+        save_path: Optional path to save the plot. If None, displays the plot.
+    """
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+    
+    epochs = range(1, len(history.history['loss']) + 1)
+    
+    # Plot loss
+    ax1.plot(epochs, history.history['loss'], 'b-', label='Training Loss', linewidth=2)
+    if 'val_loss' in history.history:
+        ax1.plot(epochs, history.history['val_loss'], 'r-', label='Validation Loss', linewidth=2)
+    ax1.set_xlabel('Epoch', fontsize=12)
+    ax1.set_ylabel('Loss', fontsize=12)
+    ax1.set_title('Model Loss', fontsize=14, fontweight='bold')
+    ax1.legend(fontsize=10)
+    ax1.grid(True, alpha=0.3)
+    
+    # Plot accuracy
+    if 'accuracy' in history.history:
+        ax2.plot(epochs, history.history['accuracy'], 'b-', label='Training Accuracy', linewidth=2)
+        if 'val_accuracy' in history.history:
+            ax2.plot(epochs, history.history['val_accuracy'], 'r-', label='Validation Accuracy', linewidth=2)
+        ax2.set_xlabel('Epoch', fontsize=12)
+        ax2.set_ylabel('Accuracy', fontsize=12)
+        ax2.set_title('Model Accuracy', fontsize=14, fontweight='bold')
+        ax2.legend(fontsize=10)
+        ax2.grid(True, alpha=0.3)
+    
+    # Add experiment name to title if provided
+    if experiment_name:
+        fig.suptitle(f'Training History: {experiment_name}', fontsize=16, fontweight='bold', y=1.02)
+    
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"\n✓ Training history plot saved to: {save_path}")
+    else:
+        plt.show()
+    
+    plt.close()

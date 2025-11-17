@@ -64,7 +64,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--splits",
         nargs="+",
-        default=("train", "test"),
+        default=("train", "test","validation"),
         help=(
             "Dataset splits to process. If a requested split (e.g., validation) "
             "does not exist on disk it will be derived from the training split "
@@ -103,7 +103,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--resample-percent",
         type=float,
-        default=None,
+        default=20.0,
         help="Optional percentage (0-100] of images to keep per split while preserving class ratios.",
     )
     parser.add_argument(
@@ -115,7 +115,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--val-percent",
         type=float,
-        default=10.0,
+        default=20.0,
         help="Percentage of the training split to reserve for a derived validation split.",
     )
     return parser.parse_args()
