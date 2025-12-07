@@ -38,13 +38,7 @@ class DetectorBackboneWithFPN(nn.Module):
         self.out_channels = out_channels
 
         # Initialize with ImageNet pre-trained weights for faster convergence.
-        # Support both old (pretrained=True) and new (weights=...) torchvision versions
-        try:
-            # Try new API first (torchvision >= 0.13)
-            _cnn = models.regnet_x_400mf(weights="IMAGENET1K_V2")
-        except TypeError:
-            # Fall back to old API (torchvision < 0.13)
-            _cnn = models.regnet_x_400mf(pretrained=True)
+        _cnn = models.regnet_x_400mf(weights="IMAGENET1K_V2")
 
         # Torchvision models only return features from the last level. Detector
         # backbones (with FPN) require intermediate features of different scales.
