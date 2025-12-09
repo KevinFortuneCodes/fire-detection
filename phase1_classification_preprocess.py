@@ -24,10 +24,11 @@ from typing import Dict, Iterable, List, Sequence, Tuple
 from PIL import Image, ImageOps
 
 # Default semantic mapping deduced from the D-Fire labels
-LABEL_MAP = {1: "fire", 2: "smoke", 3: "nothing"}
+LABEL_MAP = {1: "fire", 2: "smoke", 3: "nothing", 4: "fire_and_smoke"}
 FIRE_LABEL_IDX = 1
 SMOKE_LABEL_IDX = 2
 NO_LABEL_IDX = 3
+FIRE_AND_SMOKE_LABEL_IDX = 4
 NO_LABEL_NAME = LABEL_MAP[NO_LABEL_IDX]
 VALID_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
 
@@ -162,13 +163,16 @@ def determine_label(
 ) -> Tuple[int, str]:
     if not boxes:
         return NO_LABEL_IDX, NO_LABEL_NAME
-    label_idx = (
-        FIRE_LABEL_IDX
-        if any(cls == positive_class for cls, *_ in boxes)
-        else SMOKE_LABEL_IDX
-    )
-    label_name = LABEL_MAP[label_idx]
-    return label_idx, label_name
+    # Determine which classes are present (fire = positive_class, smoke = 0)
+    has_fire = any(cls == positive_class for cls, *_ in boxes)
+    has_smoke = any(cls == 0 for cls, *_ in boxes)
+    
+    if has_fire and has_smoke:
+        return FIRE_AND_SMOKE_LABEL_IDX, LABEL_MAP[FIRE_AND_SMOKE_LABEL_IDX]
+    elif has_fire:
+        return FIRE_LABEL_IDX, LABEL_MAP[FIRE_LABEL_IDX]
+    else:
+        return SMOKE_LABEL_IDX, LABEL_MAP[SMOKE_LABEL_IDX]
 
 
 def resample_records(

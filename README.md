@@ -113,5 +113,102 @@ PyTorch training loop looks like:
 
 During inference you only pass `images` to `FCOS.forward` (with
 `test_score_thresh`/`test_nms_thresh` if desired) and the model returns
-predicted boxes, classes, and scores, letting you declare “fire”, “smoke”, or
-“nothing” and draw the bounding boxes on the frame.
+predicted boxes, classes, and scores, letting you declare "fire", "smoke", or
+"nothing" and draw the bounding boxes on the frame.
+
+## Phase 3 — FCOS Training
+
+**Goal:** Train an FCOS-style object detector to detect fire and smoke bounding boxes.
+
+### Important: Class Mapping for FCOS
+
+FCOS uses **2 classes** for detection (not 4):
+- **Class 0**: Fire
+- **Class 1**: Smoke
+
+The `phase2_detection_metadata.py` metadata uses class indices 1 (fire) and 2 (smoke) for image-level classification, but the `annotations` array contains bounding boxes with these same indices. The training code automatically maps these to FCOS classes (0=fire, 1=smoke) using the `metadata_to_fcos_class()` helper function.
+
+### Training Setup
+
+**The training notebook (`fcos/fcos_training.ipynb`) is the primary way to train the FCOS model.** It works both locally and on Google Colab with automatic setup.
+
+#### Option 1: Google Colab (Recommended)
+
+1. **Upload files to Google Drive**:
+   - Create a folder (e.g., `fire-detection`)
+   - Upload: `fcos/` folder, `phase2_detection_metadata.py`, `requirements.txt`, `D-Fire/` dataset, and `fcos/fcos_training.ipynb`
+
+2. **Open the notebook in Colab**:
+   - Upload `fcos/fcos_training.ipynb` to Colab
+   - Update `PROJECT_PATH` in Cell 1 to match your Google Drive folder
+
+3. **Enable GPU**:
+   - Runtime → Change runtime type → GPU (T4 or better)
+
+4. **Run all cells**:
+   - The notebook automatically:
+     - Mounts Google Drive
+     - Installs dependencies
+     - Generates metadata JSON (if needed)
+     - Sets up training
+     - Trains the model
+
+#### Option 2: Local Training
+
+1. **Open the notebook**:
+```bash
+jupyter notebook fcos/fcos_training.ipynb
+```
+
+2. **Run all cells in order**:
+   - The notebook automatically detects local environment
+   - Generates metadata JSON if needed
+   - Trains the model
+
+#### Training Configuration
+
+You can adjust training parameters in the notebook's configuration cell:
+- `batch_size`: Batch size (default 4, reduce if out of memory)
+- `num_epochs`: Number of training epochs (default 50)
+- `learning_rate`: Learning rate (default 0.001)
+- `target_size`: Input image size (default 800)
+- `fpn_channels`: FPN channels (default 64)
+- `stem_channels`: Stem channel sizes (default [64, 64])
+
+#### Monitor Training
+
+The notebook automatically:
+- Saves checkpoints to `checkpoints/`
+- Logs to TensorBoard in `logs/`
+- Tracks training history in `training_history.json`
+
+To view TensorBoard:
+```bash
+tensorboard --logdir logs/
+```
+
+Or in Colab, use the TensorBoard cell in the notebook.
+
+### Files Created
+
+All FCOS-related files are organized in the `fcos/` folder:
+- `fcos/fcos.py`: FCOS model implementation
+- `fcos/fcos_dataset.py`: PyTorch Dataset class for loading detection data
+- `fcos/fcos_training.ipynb`: **Complete training notebook** (works locally and on Colab)
+  - Automatic setup and dependency installation
+  - Metadata generation
+  - Training with checkpointing
+  - Visualization and evaluation
+- `fcos/__init__.py`: Package initialization file
+
+### Model Output
+
+The trained model outputs:
+- `pred_boxes`: Tensor of shape `(N, 4)` with bounding box coordinates (x1, y1, x2, y2)
+- `pred_classes`: Tensor of shape `(N,)` with class indices (0=fire, 1=smoke)
+- `pred_scores`: Tensor of shape `(N,)` with confidence scores
+
+Checkpoints are saved to `checkpoints/`:
+- `checkpoint_epoch_N.pth`: Checkpoint for each epoch
+- `best_model.pth`: Best model based on validation loss
+- `training_history.json`: Training history for plotting

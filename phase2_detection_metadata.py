@@ -19,11 +19,53 @@ from typing import Dict, List, Sequence, Tuple
 
 from PIL import Image
 
-LABEL_MAP = {1: "fire", 2: "smoke", 3: "nothing"}
+LABEL_MAP = {1: "fire", 2: "smoke", 3: "nothing", 4: "fire_and_smoke"}
 FIRE_LABEL_IDX = 1
 SMOKE_LABEL_IDX = 2
 NOTHING_LABEL_IDX = 3
+FIRE_AND_SMOKE_LABEL_IDX = 4
 VALID_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
+
+# FCOS detection class mapping: metadata uses 1-indexed (1=fire, 2=smoke)
+# but FCOS expects 0-indexed classes (0=fire, 1=smoke)
+# Use this function to convert metadata class_idx to FCOS class_idx
+def metadata_to_fcos_class(metadata_class_idx: int) -> int:
+    """
+    Convert metadata class_idx to FCOS class_idx.
+    
+    Metadata: 1=fire, 2=smoke
+    FCOS: 0=fire, 1=smoke
+    
+    Args:
+        metadata_class_idx: Class index from metadata (1 or 2)
+    
+    Returns:
+        FCOS class index (0 or 1)
+    """
+    if metadata_class_idx == FIRE_LABEL_IDX:
+        return 0  # fire
+    elif metadata_class_idx == SMOKE_LABEL_IDX:
+        return 1  # smoke
+    else:
+        raise ValueError(f"Invalid metadata class_idx: {metadata_class_idx}")
+
+
+def fcos_to_metadata_class(fcos_class_idx: int) -> int:
+    """
+    Convert FCOS class_idx back to metadata class_idx.
+    
+    Args:
+        fcos_class_idx: FCOS class index (0 or 1)
+    
+    Returns:
+        Metadata class index (1 or 2)
+    """
+    if fcos_class_idx == 0:
+        return FIRE_LABEL_IDX  # fire
+    elif fcos_class_idx == 1:
+        return SMOKE_LABEL_IDX  # smoke
+    else:
+        raise ValueError(f"Invalid FCOS class_idx: {fcos_class_idx}")
 
 
 @dataclass
@@ -128,6 +170,8 @@ def yolo_to_xyxy(
 def determine_image_label(annotation_list: List[Dict]) -> int:
     has_fire = any(ann["class_idx"] == FIRE_LABEL_IDX for ann in annotation_list)
     has_smoke = any(ann["class_idx"] == SMOKE_LABEL_IDX for ann in annotation_list)
+    if has_fire and has_smoke:
+        return FIRE_AND_SMOKE_LABEL_IDX
     if has_fire:
         return FIRE_LABEL_IDX
     if has_smoke:
@@ -246,10 +290,22 @@ def collect_split_metadata(
 
     metadata = []
     image_iter = sorted(image_dir.iterdir())
-
+    
+    # Count total images first for progress tracking
+    total_images = sum(1 for img in image_iter if img.suffix.lower() in VALID_IMAGE_SUFFIXES)
+    image_iter = sorted(image_dir.iterdir())  # Reset iterator
+    
+    print(f"  [{split}] Processing {total_images} images...")
+    
+    processed = 0
     for image_path in image_iter:
         if image_path.suffix.lower() not in VALID_IMAGE_SUFFIXES:
             continue
+        
+        processed += 1
+        if processed % 500 == 0 or processed == total_images:
+            print(f"  [{split}] Processed {processed}/{total_images} images ({100*processed/total_images:.1f}%)")
+        
         label_path = label_dir / f"{image_path.stem}.txt"
         with Image.open(image_path) as img:
             width, height = img.size
@@ -286,7 +342,12 @@ def collect_split_metadata(
             }
         )
     original_count = len(metadata)
+    
+    if resample_percent is not None:
+        print(f"  [{split}] Resampling to {resample_percent}% of {original_count} images...")
     metadata = resample_entries(metadata, resample_percent, resample_seed)
+    
+    print(f"  [{split}] Complete: {len(metadata)} images (from {original_count} original)")
 
     label_counts = compute_label_counts(metadata)
 
@@ -301,6 +362,13 @@ def collect_split_metadata(
 
 def main() -> None:
     args = parse_args()
+    print(f"Starting metadata generation...")
+    print(f"Dataset directory: {args.dataset_dir}")
+    print(f"Splits to process: {args.splits}")
+    if args.resample_percent:
+        print(f"Resample percentage: {args.resample_percent}%")
+    print("-" * 60)
+    
     dataset_dir = args.dataset_dir
     splits = args.splits
     results = {"dataset_dir": str(dataset_dir.resolve()), "splits": {}}
@@ -310,6 +378,7 @@ def main() -> None:
     for split in splits:
         split_dir = dataset_dir / split
         if split_dir.exists():
+            print(f"\nProcessing split: {split}")
             split_meta = collect_split_metadata(
                 dataset_dir,
                 split,
