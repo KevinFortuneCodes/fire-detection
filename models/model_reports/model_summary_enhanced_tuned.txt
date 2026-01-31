@@ -1,0 +1,43 @@
+MODEL TESTING SUMMARY REPORT
+============================================================
+Feature Type: ENHANCED
+Tuned: True
+Date: 2025-12-12 20:52:33.057025
+============================================================
+
+
+============================================================
+MODEL: KNN_ENHANCED_TUNED
+============================================================
+Accuracy:  0.6101
+Precision: 0.5989
+Recall:    0.6101
+F1-Score:  0.6023
+
+Confusion Matrix Files:
+  PNG: confusion_matrices\knn_enhanced_tuned_confusion_matrix.png
+  CSV: confusion_matrices\knn_enhanced_tuned_confusion_matrix.csv
+
+============================================================
+MODEL: DECISION_TREE_ENHANCED_TUNED
+============================================================
+Accuracy:  0.5271
+Precision: 0.5159
+Recall:    0.5271
+F1-Score:  0.4987
+
+Confusion Matrix Files:
+  PNG: confusion_matrices\decision_tree_enhanced_tuned_confusion_matrix.png
+  CSV: confusion_matrices\decision_tree_enhanced_tuned_confusion_matrix.csv
+
+============================================================
+MODEL: RANDOM_FOREST_ENHANCED_TUNED
+============================================================
+Accuracy:  0.6482
+Precision: 0.6293
+Recall:    0.6482
+F1-Score:  0.6323
+
+Confusion Matrix Files:
+  PNG: confusion_matrices\random_forest_enhanced_tuned_confusion_matrix.png
+  CSV: confusion_matrices\random_forest_enhanced_tuned_confusion_matrix.csv

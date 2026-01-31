@@ -1,0 +1,43 @@
+MODEL TESTING SUMMARY REPORT
+============================================================
+Feature Type: SIMPLE
+Tuned: True
+Date: 2025-12-12 20:54:35.357894
+============================================================
+
+
+============================================================
+MODEL: KNN_SIMPLE_TUNED
+============================================================
+Accuracy:  0.5827
+Precision: 0.5735
+Recall:    0.5827
+F1-Score:  0.5745
+
+Confusion Matrix Files:
+  PNG: confusion_matrices\knn_simple_tuned_confusion_matrix.png
+  CSV: confusion_matrices\knn_simple_tuned_confusion_matrix.csv
+
+============================================================
+MODEL: DECISION_TREE_SIMPLE_TUNED
+============================================================
+Accuracy:  0.5339
+Precision: 0.5253
+Recall:    0.5339
+F1-Score:  0.5262
+
+Confusion Matrix Files:
+  PNG: confusion_matrices\decision_tree_simple_tuned_confusion_matrix.png
+  CSV: confusion_matrices\decision_tree_simple_tuned_confusion_matrix.csv
+
+============================================================
+MODEL: RANDOM_FOREST_SIMPLE_TUNED
+============================================================
+Accuracy:  0.6162
+Precision: 0.5984
+Recall:    0.6162
+F1-Score:  0.6010
+
+Confusion Matrix Files:
+  PNG: confusion_matrices\random_forest_simple_tuned_confusion_matrix.png
+  CSV: confusion_matrices\random_forest_simple_tuned_confusion_matrix.csv
