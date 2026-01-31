@@ -1,15 +1,99 @@
 # fire-detection
 
-Fire detection software for Machine Learning class project.
+Fire detection software for a Machine Learning class project. The repo contains **two pipelines**: a **CNN image-classification** pipeline (four classes: fire, smoke, nothing, fire_and_smoke) and an **FCOS object-detection** pipeline (fire and smoke bounding boxes). Both use the **D-Fire** dataset ([D-Fire: an image dataset for fire and smoke detection](https://github.com/gaia-solutions-on-demand/DFireDataset)) — 21,000+ images with YOLO-format annotations from [Gaia, solutions on demand (GAIA)](https://github.com/gaia-solutions-on-demand/DFireDataset).
+
+---
+
+## Repository structure
+
+All code and outputs are organized by role. **Run commands from the repository root.**
+
+```
+fire-detection/
+├── main.py                    # Entry point: CNN training & evaluation
+├── requirements.txt           # Python dependencies
+│
+├── src/                       # CNN classification pipeline (TensorFlow/Keras)
+│   ├── models/
+│   │   └── cnn.py             # CNN model definition and configs
+│   ├── data/
+│   │   ├── load_data.py       # tf.data loaders from Phase 1 CSVs
+│   │   ├── phase1_classification_preprocess.py   # D-Fire → classification dataset
+│   │   └── phase2_detection_metadata.py          # D-Fire → detection JSON for FCOS
+│   ├── evaluation/
+│   │   └── evaluate.py        # Metrics, logging, training plots
+│   └── experiments/
+│       └── experiments.py     # Experiment configs (baseline, dropout, etc.)
+│
+├── notebooks/
+│   └── sample_selection.ipynb # Exploratory / sample-selection notebook
+│
+├── results/                   # CNN experiment outputs
+│   └── experiment_results.json
+│
+├── fcos/                      # FCOS detection pipeline (PyTorch)
+│   ├── fcos.py                # FCOS model
+│   ├── fcos_dataset.py        # Dataset from Phase 2 JSON
+│   ├── fcos_training.ipynb    # Training notebook (local + Colab)
+│   └── __init__.py
+│
+├── models/                    # Other baselines (e.g. decision tree, KNN, RF)
+│   └── ...
+│
+├── processed_dfire/           # Created by Phase 1: resized images + CSVs
+├── D-Fire/                    # Raw D-Fire dataset (YOLO layout)
+└── plots/                     # Training/confusion plots (optional)
+```
+
+### What lives where
+
+| Path | Purpose |
+|------|--------|
+| **`main.py`** | Run CNN experiments: loads data via `src.data.load_data`, builds models from `src.models.cnn`, trains and evaluates, logs to `results/`. |
+| **`src/models/cnn.py`** | CNN architecture and default `MODEL_CONFIG` / `COMPILE_CONFIG` / `TRAIN_CONFIG`. |
+| **`src/data/`** | **Phase 1** turns D-Fire into a classification dataset (square images + per-split CSVs). **Phase 2** turns D-Fire into one detection JSON. **`load_data.py`** reads the Phase 1 CSVs and builds `tf.data.Dataset`s for `main.py`. |
+| **`src/evaluation/evaluate.py`** | Evaluation metrics, `log_results()` (writes `results/experiment_results.json`), and `plot_training_history()`. |
+| **`src/experiments/experiments.py`** | Dict of named experiments (baseline, deeper_network, dropout variants, etc.) used by `main.py` and `evaluate.py`. |
+| **`notebooks/`** | Jupyter notebooks; open from repo root so `src` is on the path. |
+| **`results/`** | CNN run logs; default file is `results/experiment_results.json`. |
+| **`fcos/`** | FCOS detector: model, dataset (from Phase 2 JSON), and training notebook. |
+
+---
+
+## Quick start
+
+1. **Install dependencies** (from repo root):
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **Prepare the D-Fire dataset** in YOLO layout under `D-Fire/` (e.g. `D-Fire/train/images`, `D-Fire/train/labels`, and optionally `test/`, `validation/`). Download images and labels (or the pre-split train/val/test sets) from the [D-Fire GitHub repo](https://github.com/gaia-solutions-on-demand/DFireDataset).
+
+3. **CNN classification pipeline**
+   - Run Phase 1 preprocessing (writes `processed_dfire/` and CSVs), then run training:
+   ```bash
+   python -m src.data.phase1_classification_preprocess --dataset-dir D-Fire --output-dir processed_dfire --splits train validation test
+   python main.py
+   ```
+   - Use `python main.py <experiment_name>` to run a single experiment (e.g. `baseline`, `deeper_network`).
+
+4. **FCOS detection pipeline**
+   - Run Phase 2 to build the detection JSON, then train via the notebook:
+   ```bash
+   python -m src.data.phase2_detection_metadata --dataset-dir D-Fire --output dfire_detection_annotations.json --splits train test validation
+   ```
+   - Open `fcos/fcos_training.ipynb` and run all cells (works locally or on Colab; see below).
+
+---
 
 ## Phase 1 — Classification dataset
 
-**Goal:** Build a balanced four-class dataset (fire / smoke / nothing / fire_and_smoke) in an
-ImageFolder-compatible structure for training a coarse classifier. The script
-also emits per-split metadata CSVs so you can later audit the preprocessing.
+**Goal:** Turn D-Fire (YOLO) into a four-class classification dataset: square RGB images plus per-split metadata CSVs. Outputs are used by `src/data/load_data.py` and `main.py`.
 
-```
-python phase1_classification_preprocess.py \
+**Script:** `src/data/phase1_classification_preprocess.py` (run as module).
+
+```bash
+python -m src.data.phase1_classification_preprocess \
   --dataset-dir D-Fire \
   --output-dir processed_dfire \
   --splits train validation test \
@@ -18,39 +102,32 @@ python phase1_classification_preprocess.py \
   --log-every 25
 ```
 
-Key options:
+**Options:**
 
-- `--dataset-dir`: path containing the D-Fire layout (`train/images`, `train/labels`, ...).
-- `--output-dir`: directory where processed PNGs + metadata CSVs will be written.
-- `--splits`: list of split names to produce. If you request `validation` (or `val`)
-  and it does not exist on disk, the script automatically carves out `--val-percent`
-  of the *resampled* training data and writes those images under
-  `processed_dfire/validation/...`.
-- `--val-percent`: fraction of the training split to reserve for the derived
-  validation split (default 10%).
-- `--image-size` / `--crop-strategy`: how each frame is converted to a square RGB crop.
-- `--positive-class`: YOLO label id treated as "fire" (default 1). All other
-  labeled boxes become "smoke"; frames without labels become "nothing". Frames
-  with both fire and smoke labels become "fire_and_smoke".
-- `--resample-percent` / `--resample-seed`: optional down-sampling to keep the
-  fire:smoke:nothing:fire_and_smoke ratio intact while reducing dataset size.
-- `--skip-existing`: useful for incremental reruns when the output directory already contains PNGs.
+- `--dataset-dir`: D-Fire root (e.g. `train/images`, `train/labels`).
+- `--output-dir`: Where to write processed PNGs and CSVs (e.g. `processed_dfire`).
+- `--splits`: Splits to produce. If `validation` (or `val`) is missing, it is derived from train using `--val-percent`.
+- `--val-percent`: Fraction of (resampled) train used for validation when deriving it.
+- `--image-size` / `--crop-strategy`: Size and crop strategy for square images.
+- `--positive-class`: YOLO class id for "fire" (default 1); others → smoke; no labels → nothing; fire+smoke → fire_and_smoke.
+- `--resample-percent` / `--resample-seed`: Optional down-sampling while keeping class ratios.
+- `--skip-existing`: Skip images already present in the output dir.
 
-Outputs:
+**Outputs:**
 
-- `processed_dfire/<split>/{fire,smoke,nothing,fire_and_smoke}/<image>.png`
-- `<output-dir>/<split>_metadata.csv` describing every processed sample
-  (`image_id`, original path, assigned label, number of bounding boxes, etc.).
+- `processed_dfire/<split>/{fire,smoke,nothing,fire_and_smoke}/*.png`
+- `processed_dfire/<split>_metadata.csv` (columns: `image_id`, `split`, `original_path`, `processed_path`, `label_idx`, `label_name`, `num_boxes`).
+
+---
 
 ## Phase 2 — Detection metadata
 
-**Goal:** Convert YOLO label files into a single JSON manifest that stores both
-the normalized (`bbox_yolo`) and absolute (`bbox_xyxy`) bounding boxes, ready
-for detector training (e.g., FCOS). This script shares the sampling/validation
-options with Phase 1, but keeps the original image files untouched.
+**Goal:** Build a single JSON manifest from D-Fire YOLO labels with absolute bounding boxes for FCOS (and optionally other detectors). Original images are not modified.
 
-```
-python phase2_detection_metadata.py \
+**Script:** `src/data/phase2_detection_metadata.py` (run as module).
+
+```bash
+python -m src.data.phase2_detection_metadata \
   --dataset-dir D-Fire \
   --output dfire_detection_annotations.json \
   --splits train test validation \
@@ -58,158 +135,68 @@ python phase2_detection_metadata.py \
   --resample-percent 25
 ```
 
-Important arguments:
+**Options:**
 
-- `--dataset-dir`: root of the YOLO dataset.
-- `--output`: path of the JSON manifest.
-- `--splits`: ordered list of splits to emit. Validation/val entries are derived
-  from the training split when they don’t exist on disk (same logic as Phase 1).
-- `--val-percent`: percentage of the *resampled* training split moved to validation when derived.
-- `--fire-class-id` / `--smoke-class-id`: map YOLO class ids to our fire vs. smoke
-  categories (default 1/0). Frames with no annotations end up in the “nothing” bucket.
-- `--resample-percent` / `--resample-seed`: sample images per split while retaining the 4-class ratios.
+- `--dataset-dir`: D-Fire root.
+- `--output`: Path for the output JSON.
+- `--splits`: Splits to include; validation can be derived from train as in Phase 1.
+- `--fire-class-id` / `--smoke-class-id`: YOLO class ids for fire and smoke (default 1 and 0).
+- `--resample-percent` / `--resample-seed`: Optional resampling with preserved class ratios.
 
-Each JSON entry contains both the per-image label summary and every bounding box:
+**JSON shape:** Each entry under a split has `image_id`, `image_path`, `width`, `height`, `image_label_idx`, `image_label_name`, `num_annotations`, and `annotations` (list of objects with `class_idx`, `class_name`, `bbox_xyxy`, `bbox_yolo`). `bbox_xyxy` is in absolute pixels; `bbox_yolo` keeps normalized YOLO coords. `fcos/fcos_dataset.py` reads this JSON.
 
-```json
-{
-  "image_id": "AoF07128",
-  "image_path": ".../D-Fire/train/images/AoF07128.jpg",
-  "width": 640,
-  "height": 512,
-  "image_label_idx": 1,
-  "image_label_name": "fire",
-  "annotations": [
-    {
-      "class_idx": 1,
-      "class_name": "fire",
-      "yolo_class_id": 1,
-      "bbox_xyxy": [163.0, 397.0, 314.0, 487.0],
-      "bbox_yolo": [0.2162, 0.7391, 0.1369, 0.1505]
-    }
-  ]
-}
-```
+---
 
-`bbox_yolo` stores the original normalized YOLO coordinates while `bbox_xyxy`
-contains absolute pixel boxes ready for training. A dataloader can iterate
-through each `entries` item in the JSON, open `image_path`, and convert the
-annotation list into a tensor of shape `(num_boxes, 5)` (`x1, y1, x2, y2, class_idx`)
-to pass into a detector. `image_label_idx` is a handy four-class summary
-(1 = fire, 2 = smoke, 3 = nothing, 4 = fire_and_smoke) that mirrors the classification pipeline and
-is also used when resampling.
+## CNN training (`main.py`)
 
-## Phase 2 model training (FCOS example)
+- **Data:** Uses `src.data.load_data.retrieve_data_generator()` to build train/val/test `tf.data.Dataset`s from the Phase 1 CSVs (e.g. `processed_dfire/train_metadata.csv`).
+- **Models:** Built from `src.models.cnn`; experiment configs live in `src.experiments.experiments`.
+- **Logging:** Results are appended to `results/experiment_results.json` via `src.evaluation.evaluate.log_results()`.
 
-An FCOS-style detector consumes full images plus ground-truth boxes. A typical
-PyTorch training loop looks like:
+Run all experiments:
 
-1. Parse the JSON manifest once and keep the per-split `entries`.
-2. For every entry, load the RGB image, apply any torchvision transforms
-   (resize, normalization, augmentation) and scale `bbox_xyxy` accordingly.
-3. Stack the boxes into a tensor and feed `(image_tensor, gt_boxes_tensor)`
-   into the FCOS model (`FCOS.forward(images, gt_boxes=...)`).
-4. The helper functions inside `fcos.py` handle matching FPN locations to boxes,
-   computing deltas, and generating centerness targets automatically.
-
-During inference you only pass `images` to `FCOS.forward` (with
-`test_score_thresh`/`test_nms_thresh` if desired) and the model returns
-predicted boxes, classes, and scores, letting you declare "fire", "smoke", or
-"nothing" and draw the bounding boxes on the frame.
-
-## Phase 3 — FCOS Training
-
-**Goal:** Train an FCOS-style object detector to detect fire and smoke bounding boxes.
-
-### Important: Class Mapping for FCOS
-
-FCOS uses **2 classes** for detection (not 4):
-- **Class 0**: Fire
-- **Class 1**: Smoke
-
-The `phase2_detection_metadata.py` metadata uses class indices 1 (fire) and 2 (smoke) for image-level classification, but the `annotations` array contains bounding boxes with these same indices. The training code automatically maps these to FCOS classes (0=fire, 1=smoke) using the `metadata_to_fcos_class()` helper function.
-
-### Training Setup
-
-**The training notebook (`fcos/fcos_training.ipynb`) is the primary way to train the FCOS model.** It works both locally and on Google Colab with automatic setup.
-
-#### Option 1: Google Colab (Recommended)
-
-1. **Upload files to Google Drive**:
-   - Create a folder (e.g., `fire-detection`)
-   - Upload: `fcos/` folder, `phase2_detection_metadata.py`, `requirements.txt`, `D-Fire/` dataset, and `fcos/fcos_training.ipynb`
-
-2. **Open the notebook in Colab**:
-   - Upload `fcos/fcos_training.ipynb` to Colab
-   - Update `PROJECT_PATH` in Cell 1 to match your Google Drive folder
-
-3. **Enable GPU**:
-   - Runtime → Change runtime type → GPU (T4 or better)
-
-4. **Run all cells**:
-   - The notebook automatically:
-     - Mounts Google Drive
-     - Installs dependencies
-     - Generates metadata JSON (if needed)
-     - Sets up training
-     - Trains the model
-
-#### Option 2: Local Training
-
-1. **Open the notebook**:
 ```bash
-jupyter notebook fcos/fcos_training.ipynb
+python main.py
 ```
 
-2. **Run all cells in order**:
-   - The notebook automatically detects local environment
-   - Generates metadata JSON if needed
-   - Trains the model
+Run one experiment:
 
-#### Training Configuration
-
-You can adjust training parameters in the notebook's configuration cell:
-- `batch_size`: Batch size (default 4, reduce if out of memory)
-- `num_epochs`: Number of training epochs (default 50)
-- `learning_rate`: Learning rate (default 0.001)
-- `target_size`: Input image size (default 800)
-- `fpn_channels`: FPN channels (default 64)
-- `stem_channels`: Stem channel sizes (default [64, 64])
-
-#### Monitor Training
-
-The notebook automatically:
-- Saves checkpoints to `checkpoints/`
-- Logs to TensorBoard in `logs/`
-- Tracks training history in `training_history.json`
-
-To view TensorBoard:
 ```bash
-tensorboard --logdir logs/
+python main.py baseline
+python main.py deeper_network
 ```
 
-Or in Colab, use the TensorBoard cell in the notebook.
+---
 
-### Files Created
+## FCOS detection training
 
-All FCOS-related files are organized in the `fcos/` folder:
-- `fcos/fcos.py`: FCOS model implementation
-- `fcos/fcos_dataset.py`: PyTorch Dataset class for loading detection data
-- `fcos/fcos_training.ipynb`: **Complete training notebook** (works locally and on Colab)
-  - Automatic setup and dependency installation
-  - Metadata generation
-  - Training with checkpointing
-  - Visualization and evaluation
-- `fcos/__init__.py`: Package initialization file
+FCOS uses **2 classes**: 0 = fire, 1 = smoke. The Phase 2 metadata uses 1-indexed labels (1=fire, 2=smoke); `src.data.phase2_detection_metadata` (and the FCOS dataset) provide `metadata_to_fcos_class()` / `fcos_to_metadata_class()` for conversion.
 
-### Model Output
+**Primary interface:** `fcos/fcos_training.ipynb` (local or Google Colab).
 
-The trained model outputs:
-- `pred_boxes`: Tensor of shape `(N, 4)` with bounding box coordinates (x1, y1, x2, y2)
-- `pred_classes`: Tensor of shape `(N,)` with class indices (0=fire, 1=smoke)
-- `pred_scores`: Tensor of shape `(N,)` with confidence scores
+### Colab
 
-Checkpoints are saved to `checkpoints/`:
-- `checkpoint_epoch_N.pth`: Checkpoint for each epoch
-- `best_model.pth`: Best model based on validation loss
-- `training_history.json`: Training history for plotting
+1. Put the repo (or a copy) in Google Drive, e.g. `MyDrive/fire-detection`.
+2. In the notebook, set `PROJECT_PATH` to that folder (e.g. `'/content/drive/MyDrive/fire-detection'`).
+3. Ensure these are under the project path: `fcos/`, `src/` (including `src/data/phase2_detection_metadata.py`), `requirements.txt`, and the D-Fire dataset.
+4. Runtime → Change runtime type → GPU, then run all cells. The notebook can generate the Phase 2 JSON if it’s missing.
+
+### Local
+
+1. Generate the detection JSON if needed:
+   ```bash
+   python -m src.data.phase2_detection_metadata --dataset-dir D-Fire --output dfire_detection_annotations.json --splits train test validation
+   ```
+2. Open the notebook from the repo root:
+   ```bash
+   jupyter notebook fcos/fcos_training.ipynb
+   ```
+3. Run all cells in order.
+
+**FCOS files in `fcos/`:**
+
+- `fcos.py`: FCOS model.
+- `fcos_dataset.py`: PyTorch Dataset over the Phase 2 JSON; imports from `src.data.phase2_detection_metadata`.
+- `fcos_training.ipynb`: Setup, training, checkpointing, TensorBoard, and visualizations.
+
+Checkpoints and logs (e.g. `checkpoints/`, `logs/`, `training_history.json`) are created as configured in the notebook.
