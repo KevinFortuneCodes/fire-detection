@@ -4,7 +4,7 @@ Fire detection software for Machine Learning class project.
 
 ## Phase 1 — Classification dataset
 
-**Goal:** Build a balanced three-class dataset (fire / smoke / nothing) in an
+**Goal:** Build a balanced four-class dataset (fire / smoke / nothing / fire_and_smoke) in an
 ImageFolder-compatible structure for training a coarse classifier. The script
 also emits per-split metadata CSVs so you can later audit the preprocessing.
 
@@ -29,15 +29,16 @@ Key options:
 - `--val-percent`: fraction of the training split to reserve for the derived
   validation split (default 10%).
 - `--image-size` / `--crop-strategy`: how each frame is converted to a square RGB crop.
-- `--positive-class`: YOLO label id treated as “fire” (default 1). All other
-  labeled boxes become “smoke”; frames without labels become “nothing”.
+- `--positive-class`: YOLO label id treated as "fire" (default 1). All other
+  labeled boxes become "smoke"; frames without labels become "nothing". Frames
+  with both fire and smoke labels become "fire_and_smoke".
 - `--resample-percent` / `--resample-seed`: optional down-sampling to keep the
-  fire:smoke:nothing ratio intact while reducing dataset size.
+  fire:smoke:nothing:fire_and_smoke ratio intact while reducing dataset size.
 - `--skip-existing`: useful for incremental reruns when the output directory already contains PNGs.
 
 Outputs:
 
-- `processed_dfire/<split>/{fire,smoke,nothing}/<image>.png`
+- `processed_dfire/<split>/{fire,smoke,nothing,fire_and_smoke}/<image>.png`
 - `<output-dir>/<split>_metadata.csv` describing every processed sample
   (`image_id`, original path, assigned label, number of bounding boxes, etc.).
 
@@ -66,7 +67,7 @@ Important arguments:
 - `--val-percent`: percentage of the *resampled* training split moved to validation when derived.
 - `--fire-class-id` / `--smoke-class-id`: map YOLO class ids to our fire vs. smoke
   categories (default 1/0). Frames with no annotations end up in the “nothing” bucket.
-- `--resample-percent` / `--resample-seed`: sample images per split while retaining the 3-class ratios.
+- `--resample-percent` / `--resample-seed`: sample images per split while retaining the 4-class ratios.
 
 Each JSON entry contains both the per-image label summary and every bounding box:
 
@@ -94,8 +95,8 @@ Each JSON entry contains both the per-image label summary and every bounding box
 contains absolute pixel boxes ready for training. A dataloader can iterate
 through each `entries` item in the JSON, open `image_path`, and convert the
 annotation list into a tensor of shape `(num_boxes, 5)` (`x1, y1, x2, y2, class_idx`)
-to pass into a detector. `image_label_idx` is a handy three-class summary
-(1 = fire, 2 = smoke, 3 = nothing) that mirrors the classification pipeline and
+to pass into a detector. `image_label_idx` is a handy four-class summary
+(1 = fire, 2 = smoke, 3 = nothing, 4 = fire_and_smoke) that mirrors the classification pipeline and
 is also used when resampling.
 
 ## Phase 2 model training (FCOS example)

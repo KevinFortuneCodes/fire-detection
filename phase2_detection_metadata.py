@@ -424,7 +424,7 @@ def main() -> None:
         print(
             f"[{split}] images: {split_meta['num_images']} "
             f"(original {split_meta['original_count']}), "
-            f"boxes: {box_total}; label distribution → {label_counts}"
+            f"boxes: {box_total}; label distribution -> {label_counts}"
         )
 
     args.output.write_text(json.dumps(results, indent=2))

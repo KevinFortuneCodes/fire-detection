@@ -13,11 +13,13 @@ from sklearn.metrics import (
 
 def evaluate_model(model, test_data):
     """
-    Evaluate the model on test data for 3-class classification (fire, smoke, nothing).
+    Evaluate the model on test data for 4-class classification (fire, smoke, nothing, fire_and_smoke).
     
     Args:
         model: Trained Keras model
-        test_data: Test data (X_test, y_test) tuple
+        test_data: Test data - can be either:
+            - (X_test, y_test) tuple of numpy arrays
+            - tf.data.Dataset (memory-efficient, loads images on-demand)
     
     Returns:
         Dictionary containing:
@@ -31,31 +33,64 @@ def evaluate_model(model, test_data):
         - f1_score_weighted: F1-score (weighted by class frequency)
         - precision, recall, f1_score: Legacy fields (using weighted values)
         - mAP: Mean Average Precision (mean of per-class average precision scores)
-        - precision_per_class: Dict with precision for each class (fire, smoke, nothing)
-        - recall_per_class: Dict with recall for each class (fire, smoke, nothing)
-        - f1_per_class: Dict with F1-score for each class (fire, smoke, nothing)
+        - precision_per_class: Dict with precision for each class (fire, smoke, nothing, fire_and_smoke)
+        - recall_per_class: Dict with recall for each class (fire, smoke, nothing, fire_and_smoke)
+        - f1_per_class: Dict with F1-score for each class (fire, smoke, nothing, fire_and_smoke)
         - class_support: Dict with number of samples per class
-        - confusion_matrix: 3x3 confusion matrix as list of lists
+        - confusion_matrix: 4x4 confusion matrix as list of lists
     """
-    X_test, y_test = test_data
-    
-    # Get loss and accuracy from model.evaluate
-    test_loss, test_acc = model.evaluate(X_test, y_test, verbose=0)
-    
-    # Get predictions (logits)
-    y_pred_logits = model.predict(X_test, verbose=0)
+    # Check if test_data is a tf.data.Dataset or numpy arrays
+    import tensorflow as tf
+    if isinstance(test_data, tf.data.Dataset):
+        # For tf.data.Dataset, we need to collect all predictions and labels
+        # This is less memory-efficient but necessary for evaluation metrics
+        print("Evaluating with tf.data.Dataset - collecting predictions...")
+        all_pred_logits = []
+        all_labels = []
+        
+        for batch_images, batch_labels in test_data:
+            # Debug: Check image shape
+            if len(batch_images.shape) != 4:
+                print(f"WARNING: Expected batch_images shape (batch, 256, 256, 3), got {batch_images.shape}")
+                # If shape is wrong, try to reshape
+                if len(batch_images.shape) == 3:
+                    # Might be (batch, height*width, channels) or similar
+                    print(f"  Attempting to reshape...")
+                    # This shouldn't happen, but let's handle it
+                    raise ValueError(f"Unexpected image shape: {batch_images.shape}. Expected (batch, 256, 256, 3)")
+            batch_pred = model.predict(batch_images, verbose=0)
+            all_pred_logits.append(batch_pred)
+            all_labels.append(batch_labels.numpy())
+        
+        # Concatenate all batches
+        y_pred_logits = np.concatenate(all_pred_logits, axis=0)
+        y_test_np = np.concatenate(all_labels, axis=0)
+        
+        # Get loss and accuracy (need to evaluate on dataset)
+        eval_results = model.evaluate(test_data, verbose=0, return_dict=True)
+        test_loss = eval_results.get('loss', 0.0)
+        test_acc = eval_results.get('accuracy', 0.0)
+    else:
+        # Numpy arrays - original code
+        X_test, y_test = test_data
+        
+        # Convert tensors to numpy if needed
+        if isinstance(y_test, tf.Tensor):
+            y_test_np = y_test.numpy()
+        else:
+            y_test_np = y_test
+        
+        # Get loss and accuracy from model.evaluate
+        test_loss, test_acc = model.evaluate(X_test, y_test, verbose=0)
+        
+        # Get predictions (logits)
+        y_pred_logits = model.predict(X_test, verbose=0)
     
     # Convert logits to probabilities using softmax
     y_pred_probs = tf.nn.softmax(y_pred_logits).numpy()
     
     # Get predicted classes (argmax)
     y_pred = np.argmax(y_pred_probs, axis=1)
-    
-    # Convert tensors to numpy if needed
-    if isinstance(y_test, tf.Tensor):
-        y_test_np = y_test.numpy()
-    else:
-        y_test_np = y_test
     
     # Calculate precision and recall with different averaging strategies
     # Macro: unweighted mean of per-class metrics (treats all classes equally)
@@ -73,8 +108,8 @@ def evaluate_model(model, test_data):
     recall_per_class = recall_score(y_test_np, y_pred, average=None, zero_division=0)
     f1_per_class = f1_score(y_test_np, y_pred, average=None, zero_division=0)
     
-    # Class names for 3-class classification: fire, smoke, nothing
-    class_names = ['fire', 'smoke', 'nothing']
+    # Class names for 4-class classification: fire, smoke, nothing, fire_and_smoke
+    class_names = ['fire', 'smoke', 'nothing', 'fire_and_smoke']
     
     # Calculate class support (number of samples per class) for context
     from collections import Counter

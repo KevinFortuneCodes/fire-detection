@@ -1,58 +1,67 @@
 from cnn import MODEL_CONFIG, COMPILE_CONFIG, TRAIN_CONFIG
 
-# Experiment configurations for CNN classification
-# Note: Images are preprocessed to 256x256 (see phase1_classification_preprocess.py)
-# Dataset has 3 classes: fire (1), smoke (2), nothing (3)
-# plot loss vs epoch and accuracy vs epoch: good way to visualize the training process
-### shape of the curve is good information. looking for consistency
-
 EXPERIMENTS = {
     'baseline': {
         'model_config': MODEL_CONFIG.copy(),
         'compile_config': COMPILE_CONFIG.copy(),
         'train_config': {
             **TRAIN_CONFIG.copy(),
-            'batch_size': 16,  # Reduced for GPU memory constraints
-            'validation_batch_size': 4  # Very small for validation to prevent OOM
+            'batch_size': 32, 
+            'validation_batch_size': 16 
         },
-        'description': 'Baseline model with default settings (batch_size=16 for GPU memory)'
+        'description': 'Baseline model with default settings (batch_size=32)'
     },
     
     'deeper_network': {
         'model_config': {
-            'input_shape': (256, 256, 3),  # Matches phase1 preprocessing default image size
+            'input_shape': (256, 256, 3),
             'conv_layers': [
                 {'filters': 64, 'kernel_size': (3, 3), 'activation': 'relu'},
                 {'filters': 128, 'kernel_size': (3, 3), 'activation': 'relu'},
-                {'filters': 256, 'kernel_size': (3, 3), 'activation': 'relu'},  # Increased from 128 to 256
+                {'filters': 256, 'kernel_size': (3, 3), 'activation': 'relu'},
             ],
             'pool_size': (2, 2),
-            'dense_units': [256, 128],  # Increased to match final conv layer capacity
-            'output_units': 3,  # 3 classes: fire, smoke, nothing
+            'dense_units': [256, 128],
+            'output_units': 4, 
             'output_activation': None,
             'dropout_rate': 0.2,
         },
         'compile_config': COMPILE_CONFIG.copy(),
         'train_config': {
             **TRAIN_CONFIG.copy(),
-            'batch_size': 16,  # Reduced from 32 to 16 to fit in GPU memory
-            'validation_batch_size': 4  # Very small for validation to prevent OOM
+            'batch_size': 32, 
+            'validation_batch_size': 16  
         },
-        'description': 'Deeper network with more filters and dense layers (batch_size=16 for GPU memory)'
+        'description': 'Deeper network with more filters and dense layers (batch_size=32)'
     },
     
     'more_dropout': {
         'model_config': {
             **MODEL_CONFIG.copy(),
-            'dropout_rate': 0.5
+            'dropout_rate': 0.25
         },
         'compile_config': COMPILE_CONFIG.copy(),
         'train_config': {
             **TRAIN_CONFIG.copy(),
-            'batch_size': 16,
-            'validation_batch_size': 8
+            'batch_size': 32,
+            'validation_batch_size': 16,
+            'epochs': 10
         },
-        'description': 'Baseline model with dropout regularization (batch_size=16 for GPU memory)'
+        'description': 'Baseline model with dropout regularization (batch_size=32)'
+    },
+    'less_dropout': {
+        'model_config': {
+            **MODEL_CONFIG.copy(),
+            'dropout_rate': 0.15
+        },
+        'compile_config': COMPILE_CONFIG.copy(),
+        'train_config': {
+            **TRAIN_CONFIG.copy(),
+            'batch_size': 32,
+            'validation_batch_size': 16,
+            'epochs': 10
+        },
+        'description': 'Baseline model with dropout regularization (batch_size=32)'
     },
     
     'lower_learning_rate': {
@@ -63,34 +72,19 @@ EXPERIMENTS = {
         },
         'train_config': {
             **TRAIN_CONFIG.copy(),
-            'batch_size': 16,
-            'validation_batch_size': 8
+            'batch_size': 32,
+            'validation_batch_size': 16
         },
-        'description': 'Baseline model with lower learning rate (batch_size=16 for GPU memory)'
+        'description': 'Baseline model with lower learning rate (batch_size=32)'
     },
-    'complex_network': {
-        'model_config': {
-            'input_shape': (256, 256, 3),  # Matches phase1 preprocessing default image size
-            'conv_layers': [
-                {'filters': 64, 'kernel_size': (3, 3), 'activation': 'relu'},
-                {'filters': 128, 'kernel_size': (3, 3), 'activation': 'relu'},
-                {'filters': 256, 'kernel_size': (3, 3), 'activation': 'relu'},  # Increased from 128 to 256
-            ],
-            'pool_size': (2, 2),
-            'dense_units': [256, 128],  # Increased to match final conv layer capacity
-            'output_units': 3,  # 3 classes: fire, smoke, nothing
-            'output_activation': None,
-            'dropout_rate': 0.5,
-        },
-        'compile_config': {
-            **COMPILE_CONFIG.copy(),
-            'learning_rate': 0.0001
-        },
+    'add_regularization': {
+        'model_config': { **MODEL_CONFIG.copy(), 'l2_regularization': 0.001},
+        'compile_config': COMPILE_CONFIG.copy(),
         'train_config': {
             **TRAIN_CONFIG.copy(),
-            'batch_size': 16,  # Reduced from 32 to 16 to fit in GPU memory
-            'validation_batch_size': 4  # Very small for validation to prevent OOM
+            'batch_size': 32, 
+            'validation_batch_size': 16 
         },
-        'description': 'Complex network with all parameter adjustments (batch_size=16 for GPU memory)'
+        'description': 'Baseline model with L2 regularization'
     },
 }

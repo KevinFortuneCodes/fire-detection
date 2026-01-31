@@ -1,6 +1,6 @@
 from cnn import create_model, compile_model, train_model
 from experiments import EXPERIMENTS
-from load_data import retrieve_data
+from load_data import retrieve_data_generator
 from evaluate import get_hyperparameters, log_results, evaluate_model, plot_training_history
 from pathlib import Path
 
@@ -42,8 +42,8 @@ def train_experiment(model, experiment_name, train_data, val_data=None):
     Args:
         model: Compiled Keras model
         experiment_name: Name of experiment from EXPERIMENTS dictionary
-        train_data: Training data (X_train, y_train) tuple
-        val_data: Validation data (X_val, y_val) tuple or None
+        train_data: Training data (tf.data.Dataset or (X_train, y_train) tuple)
+        val_data: Validation data (tf.data.Dataset or (X_val, y_val) tuple) or None
     
     Returns:
         Trained model object (History from model.fit())
@@ -52,6 +52,36 @@ def train_experiment(model, experiment_name, train_data, val_data=None):
         raise ValueError(f"Unknown experiment: {experiment_name}")
     
     experiment = EXPERIMENTS[experiment_name]
+    train_config = experiment['train_config']
+    
+    # Apply experiment-specific batch sizes to datasets if they're unbatched
+    import tensorflow as tf
+    if isinstance(train_data, tf.data.Dataset):
+        # Check if dataset is unbatched (has no batch dimension)
+        # Unbatched datasets have shape (256, 256, 3), batched have (None, 256, 256, 3)
+        element_spec = train_data.element_spec
+        if isinstance(element_spec, tuple):
+            image_spec = element_spec[0]
+            is_batched = len(image_spec.shape) > 0 and image_spec.shape[0] is None
+        else:
+            is_batched = len(element_spec.shape) > 0 and element_spec.shape[0] is None
+        
+        if not is_batched:
+            # Apply batching from experiment config
+            batch_size = train_config.get('batch_size', 32)
+            train_data = train_data.batch(batch_size)
+    
+    if val_data is not None and isinstance(val_data, tf.data.Dataset):
+        element_spec = val_data.element_spec
+        if isinstance(element_spec, tuple):
+            image_spec = element_spec[0]
+            is_batched = len(image_spec.shape) > 0 and image_spec.shape[0] is None
+        else:
+            is_batched = len(element_spec.shape) > 0 and element_spec.shape[0] is None
+        
+        if not is_batched:
+            val_batch_size = train_config.get('validation_batch_size', train_config.get('batch_size', 32))
+            val_data = val_data.batch(val_batch_size)
     
     print(f"\n{'='*60}")
     print(f"Training Experiment: {experiment_name}")
@@ -61,7 +91,7 @@ def train_experiment(model, experiment_name, train_data, val_data=None):
         model,
         train_data,
         val_data=val_data,
-        config=experiment['train_config']
+        config=train_config
     )
     
     # Plot training history if enabled (default: True)
@@ -121,7 +151,7 @@ def evaluate_experiment(model, eval_data, data_type="Validation",
     
     # Print class distribution for context
     print(f"\nClass Distribution (support):")
-    for class_name in ['fire', 'smoke', 'nothing']:
+    for class_name in ['fire', 'smoke', 'nothing', 'fire_and_smoke']:
         support = eval_results['class_support'][class_name]
         total = sum(eval_results['class_support'].values())
         pct = (support / total) * 100 if total > 0 else 0
@@ -143,7 +173,7 @@ def evaluate_experiment(model, eval_data, data_type="Validation",
     
     # Print per-class metrics (essential for imbalanced classes)
     print(f"\nPer-Class Metrics (critical for understanding imbalanced class performance):")
-    for class_name in ['fire', 'smoke', 'nothing']:
+    for class_name in ['fire', 'smoke', 'nothing', 'fire_and_smoke']:
         support = eval_results['class_support'][class_name]
         print(f"  {class_name.capitalize()} (n={support}):")
         print(f"    Precision: {eval_results['precision_per_class'][class_name]:.4f}")
@@ -153,11 +183,11 @@ def evaluate_experiment(model, eval_data, data_type="Validation",
     # Print confusion matrix
     print(f"\nConfusion Matrix:")
     print(f"                Predicted")
-    print(f"              fire smoke nothing")
+    print(f"              fire smoke nothing fire_and_smoke")
     cm = eval_results['confusion_matrix']
-    class_names = ['fire', 'smoke', 'nothing']
+    class_names = ['fire', 'smoke', 'nothing', 'fire_and_smoke']
     for i, class_name in enumerate(class_names):
-        print(f"{class_name:8} {cm[i]}")
+        print(f"{class_name:15} {cm[i]}")
     
     # Log results to file if experiment_name is provided
     if experiment_name is not None:
@@ -194,6 +224,7 @@ def run_experiment(experiment_name, train_data=None, val_data=None,
         trained_model = train_experiment(model, experiment_name, train_data, val_data)
     
     # Evaluate on test data if provided, otherwise on validation data
+    # Note: validation/test datasets are always batched (see retrieve_data_generator)
     eval_results = None
     if test_data is not None:
         eval_results = evaluate_experiment(
@@ -378,11 +409,15 @@ if __name__ == "__main__":
     print("Loading data...")
     print("="*60)
     
-    #loading the preprocessed data from pre-defined splits
-    train_data, val_data, test_data = retrieve_data(
+    print("Using memory-efficient generator-based data loading (tf.data.Dataset)")
+    print("Images will be loaded on-demand, not all at once in memory.")
+    # Load data without batching - each experiment will apply its own batch_size
+    train_data, val_data, test_data = retrieve_data_generator(
         train_path="processed_dfire/train",
         val_path="processed_dfire/validation",
-        test_path=None
+        test_path=None,
+        batch_size=None,  # Don't batch here - each experiment will batch with its own size
+        shuffle_train=True
     )
 
     # Run specific experiment or all experiments

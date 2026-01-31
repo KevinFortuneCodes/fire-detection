@@ -1,8 +1,8 @@
 [
   {
-    "timestamp": "2025-11-16T13:59:01.997953",
+    "timestamp": "2025-12-10T11:02:53.862262",
     "experiment_name": "baseline",
-    "data_type": "Test",
+    "data_type": "Validation",
     "hyperparameters": {
       "model_config": {
         "input_shape": [
@@ -43,9 +43,10 @@
         "dense_units": [
           128
         ],
-        "output_units": 3,
+        "output_units": 4,
         "output_activation": null,
-        "dropout_rate": 0.2
+        "dropout_rate": 0.2,
+        "l2_regularization": 0.0
       },
       "compile_config": {
         "optimizer": "adam",
@@ -58,254 +59,81 @@
       "train_config": {
         "epochs": 10,
         "batch_size": 32,
-        "verbose": 1
-      },
-      "description": "Baseline model with default settings"
-    },
-    "results": {
-      "test_loss": 1.1602455377578735,
-      "test_accuracy": 0.7444831728935242,
-      "precision": 0.7364099731702934,
-      "recall": 0.7229300340314314,
-      "f1_score": 0.7236498274706236,
-      "mAP": 0.7993692954935593
-    }
-  },
-  {
-    "timestamp": "2025-11-16T14:12:55.841115",
-    "experiment_name": "baseline",
-    "data_type": "Test",
-    "hyperparameters": {
-      "model_config": {
-        "input_shape": [
-          256,
-          256,
-          3
-        ],
-        "conv_layers": [
-          {
-            "filters": 32,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          },
-          {
-            "filters": 64,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          },
-          {
-            "filters": 128,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          }
-        ],
-        "pool_size": [
-          2,
-          2
-        ],
-        "dense_units": [
-          128
-        ],
-        "output_units": 3,
-        "output_activation": null,
-        "dropout_rate": 0.2
-      },
-      "compile_config": {
-        "optimizer": "adam",
-        "learning_rate": 0.001,
-        "loss": "SparseCategoricalCrossentropy",
-        "metrics": [
-          "accuracy"
-        ]
-      },
-      "train_config": {
-        "epochs": 10,
-        "batch_size": 32,
-        "verbose": 1
-      },
-      "description": "Baseline model with default settings"
-    },
-    "results": {
-      "test_loss": 1.362852692604065,
-      "test_accuracy": 0.7119628190994263,
-      "precision_macro": 0.7066487380506862,
-      "recall_macro": 0.6838214203191383,
-      "f1_score_macro": 0.6923317103828118,
-      "precision_weighted": 0.7101715499781056,
-      "recall_weighted": 0.7119628339140535,
-      "f1_score_weighted": 0.7081177202872939,
-      "precision": 0.7101715499781056,
-      "recall": 0.7119628339140535,
-      "f1_score": 0.7081177202872939,
-      "mAP": 0.7552543244126856,
-      "precision_per_class": {
-        "fire": 0.7409326424870466,
-        "smoke": 0.6509433962264151,
-        "nothing": 0.7280701754385965
-      },
-      "recall_per_class": {
-        "fire": 0.6412556053811659,
-        "smoke": 0.5822784810126582,
-        "nothing": 0.827930174563591
-      },
-      "f1_per_class": {
-        "fire": 0.6875,
-        "smoke": 0.6146993318485523,
-        "nothing": 0.7747957992998833
-      },
-      "class_support": {
-        "fire": 223,
-        "smoke": 237,
-        "nothing": 401
-      },
-      "confusion_matrix": [
-        [
-          143,
-          26,
-          54
-        ],
-        [
-          29,
-          138,
-          70
-        ],
-        [
-          21,
-          48,
-          332
-        ]
-      ]
-    }
-  },
-  {
-    "timestamp": "2025-11-16T14:22:25.875894",
-    "experiment_name": "baseline",
-    "data_type": "Test",
-    "hyperparameters": {
-      "model_config": {
-        "input_shape": [
-          256,
-          256,
-          3
-        ],
-        "conv_layers": [
-          {
-            "filters": 32,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          },
-          {
-            "filters": 64,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          },
-          {
-            "filters": 128,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          }
-        ],
-        "pool_size": [
-          2,
-          2
-        ],
-        "dense_units": [
-          128
-        ],
-        "output_units": 3,
-        "output_activation": null,
-        "dropout_rate": 0.2
-      },
-      "compile_config": {
-        "optimizer": "adam",
-        "learning_rate": 0.001,
-        "loss": "SparseCategoricalCrossentropy",
-        "metrics": [
-          "accuracy"
-        ]
-      },
-      "train_config": {
-        "epochs": 10,
-        "batch_size": 32,
+        "validation_batch_size": 16,
         "verbose": 1,
         "shuffle": true
       },
-      "description": "Baseline model with default settings"
+      "description": "Baseline model with default settings (batch_size=32)"
     },
     "results": {
-      "test_loss": 1.4461917877197266,
-      "test_accuracy": 0.7491289377212524,
-      "precision_macro": 0.7359056413881958,
-      "recall_macro": 0.7415638277172922,
-      "f1_score_macro": 0.7357126190082406,
-      "precision_weighted": 0.7516426740870118,
-      "recall_weighted": 0.7491289198606271,
-      "f1_score_weighted": 0.747943589948928,
-      "precision": 0.7516426740870118,
-      "recall": 0.7491289198606271,
-      "f1_score": 0.747943589948928,
-      "mAP": 0.8027199454513223,
+      "test_loss": 1.1122163534164429,
+      "test_accuracy": 0.8002902865409851,
+      "precision_macro": 0.7525061672891363,
+      "recall_macro": 0.7151983810752374,
+      "f1_score_macro": 0.7307077639726167,
+      "precision_weighted": 0.7967669237171889,
+      "recall_weighted": 0.8002902757619739,
+      "f1_score_weighted": 0.7974722996260439,
+      "precision": 0.7967669237171889,
+      "recall": 0.8002902757619739,
+      "f1_score": 0.7974722996260439,
+      "mAP": 0.7873007135663563,
       "precision_per_class": {
-        "fire": 0.6879699248120301,
-        "smoke": 0.7053140096618358,
-        "nothing": 0.8144329896907216
+        "fire": 0.6267605633802817,
+        "smoke": 0.7528675703858185,
+        "nothing": 0.8526187576126675,
+        "fire_and_smoke": 0.7777777777777778
       },
       "recall_per_class": {
-        "fire": 0.820627802690583,
-        "smoke": 0.6160337552742616,
-        "nothing": 0.7880299251870324
+        "fire": 0.4708994708994709,
+        "smoke": 0.7713675213675214,
+        "nothing": 0.8934269304403318,
+        "fire_and_smoke": 0.7250996015936255
       },
       "f1_per_class": {
-        "fire": 0.7484662576687117,
-        "smoke": 0.6576576576576577,
-        "nothing": 0.8010139416983524
+        "fire": 0.5377643504531722,
+        "smoke": 0.7620052770448549,
+        "nothing": 0.8725459644749143,
+        "fire_and_smoke": 0.7505154639175258
       },
       "class_support": {
-        "fire": 223,
-        "smoke": 237,
-        "nothing": 401
+        "fire": 189,
+        "smoke": 936,
+        "nothing": 1567,
+        "fire_and_smoke": 753
       },
       "confusion_matrix": [
         [
-          183,
-          17,
-          23
+          89,
+          15,
+          14,
+          71
         ],
         [
-          42,
-          146,
-          49
+          5,
+          722,
+          164,
+          45
         ],
         [
-          41,
+          4,
+          123,
+          1400,
+          40
+        ],
+        [
           44,
-          316
+          99,
+          64,
+          546
         ]
       ]
     }
   },
   {
-    "timestamp": "2025-11-16T14:24:01.212483",
-    "experiment_name": "baseline",
-    "data_type": "Test",
+    "timestamp": "2025-12-10T11:12:05.357492",
+    "experiment_name": "deeper_network",
+    "data_type": "Validation",
     "hyperparameters": {
       "model_config": {
         "input_shape": [
@@ -314,14 +142,6 @@
           3
         ],
         "conv_layers": [
-          {
-            "filters": 32,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          },
           {
             "filters": 64,
             "kernel_size": [
@@ -337,6 +157,14 @@
               3
             ],
             "activation": "relu"
+          },
+          {
+            "filters": 256,
+            "kernel_size": [
+              3,
+              3
+            ],
+            "activation": "relu"
           }
         ],
         "pool_size": [
@@ -344,9 +172,10 @@
           2
         ],
         "dense_units": [
+          256,
           128
         ],
-        "output_units": 3,
+        "output_units": 4,
         "output_activation": null,
         "dropout_rate": 0.2
       },
@@ -361,417 +190,81 @@
       "train_config": {
         "epochs": 10,
         "batch_size": 32,
+        "validation_batch_size": 16,
         "verbose": 1,
         "shuffle": true
       },
-      "description": "Baseline model with default settings"
+      "description": "Deeper network with more filters and dense layers (batch_size=32)"
     },
     "results": {
-      "test_loss": 1.3707441091537476,
-      "test_accuracy": 0.7328687310218811,
-      "precision_macro": 0.730615380594574,
-      "recall_macro": 0.7240909067388167,
-      "f1_score_macro": 0.7260330081044811,
-      "precision_weighted": 0.7368847253341212,
-      "recall_weighted": 0.7328687572590011,
-      "f1_score_weighted": 0.7338256041156883,
-      "precision": 0.7368847253341212,
-      "recall": 0.7328687572590011,
-      "f1_score": 0.7338256041156883,
-      "mAP": 0.7934256901249621,
+      "test_loss": 1.0658541917800903,
+      "test_accuracy": 0.805805504322052,
+      "precision_macro": 0.7730188164047334,
+      "recall_macro": 0.7357454394636711,
+      "f1_score_macro": 0.750650886527963,
+      "precision_weighted": 0.8054308745248647,
+      "recall_weighted": 0.8058055152394775,
+      "f1_score_weighted": 0.8046468819738786,
+      "precision": 0.8054308745248647,
+      "recall": 0.8058055152394775,
+      "f1_score": 0.8046468819738786,
+      "mAP": 0.8078374450720431,
       "precision_per_class": {
-        "fire": 0.7839195979899497,
-        "smoke": 0.6398467432950191,
-        "nothing": 0.7680798004987531
+        "fire": 0.7050359712230215,
+        "smoke": 0.7374245472837022,
+        "nothing": 0.8710912571793236,
+        "fire_and_smoke": 0.7785234899328859
       },
       "recall_per_class": {
-        "fire": 0.6995515695067265,
-        "smoke": 0.7046413502109705,
-        "nothing": 0.7680798004987531
+        "fire": 0.5185185185185185,
+        "smoke": 0.7831196581196581,
+        "nothing": 0.8710912571793236,
+        "fire_and_smoke": 0.7702523240371846
       },
       "f1_per_class": {
-        "fire": 0.7393364928909952,
-        "smoke": 0.6706827309236948,
-        "nothing": 0.7680798004987531
+        "fire": 0.5975609756097561,
+        "smoke": 0.7595854922279792,
+        "nothing": 0.8710912571793236,
+        "fire_and_smoke": 0.774365821094793
       },
       "class_support": {
-        "fire": 223,
-        "smoke": 237,
-        "nothing": 401
+        "fire": 189,
+        "smoke": 936,
+        "nothing": 1567,
+        "fire_and_smoke": 753
       },
       "confusion_matrix": [
         [
-          156,
-          24,
+          98,
+          11,
+          17,
+          63
+        ],
+        [
+          2,
+          733,
+          142,
+          59
+        ],
+        [
+          5,
+          154,
+          1365,
           43
         ],
         [
-          20,
-          167,
-          50
-        ],
-        [
-          23,
-          70,
-          308
+          34,
+          96,
+          43,
+          580
         ]
       ]
     }
   },
   {
-    "timestamp": "2025-11-16T14:30:10.390658",
-    "experiment_name": "deeper_network",
-    "data_type": "Test",
-    "hyperparameters": {
-      "model_config": {
-        "input_shape": [
-          256,
-          256,
-          3
-        ],
-        "conv_layers": [
-          {
-            "filters": 64,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          },
-          {
-            "filters": 128,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          },
-          {
-            "filters": 256,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          }
-        ],
-        "pool_size": [
-          2,
-          2
-        ],
-        "dense_units": [
-          256,
-          128
-        ],
-        "output_units": 3,
-        "output_activation": null,
-        "dropout_rate": 0.0
-      },
-      "compile_config": {
-        "optimizer": "adam",
-        "learning_rate": 0.001,
-        "loss": "SparseCategoricalCrossentropy",
-        "metrics": [
-          "accuracy"
-        ]
-      },
-      "train_config": {
-        "epochs": 10,
-        "batch_size": 16,
-        "verbose": 1,
-        "shuffle": true
-      },
-      "description": "Deeper network with more filters and dense layers (batch_size=16 for GPU memory)"
-    },
-    "results": {
-      "test_loss": 1.3949768543243408,
-      "test_accuracy": 0.7444831728935242,
-      "precision_macro": 0.7367592405781624,
-      "recall_macro": 0.7310284612146889,
-      "f1_score_macro": 0.733168311742026,
-      "precision_weighted": 0.7420943483394715,
-      "recall_weighted": 0.7444831591173054,
-      "f1_score_weighted": 0.7426015048887297,
-      "precision": 0.7420943483394715,
-      "recall": 0.7444831591173054,
-      "f1_score": 0.7426015048887297,
-      "mAP": 0.7760523280101709,
-      "precision_per_class": {
-        "fire": 0.7654867256637168,
-        "smoke": 0.677570093457944,
-        "nothing": 0.7672209026128266
-      },
-      "recall_per_class": {
-        "fire": 0.7757847533632287,
-        "smoke": 0.6118143459915611,
-        "nothing": 0.8054862842892768
-      },
-      "f1_per_class": {
-        "fire": 0.7706013363028953,
-        "smoke": 0.6430155210643016,
-        "nothing": 0.7858880778588808
-      },
-      "class_support": {
-        "fire": 223,
-        "smoke": 237,
-        "nothing": 401
-      },
-      "confusion_matrix": [
-        [
-          173,
-          22,
-          28
-        ],
-        [
-          22,
-          145,
-          70
-        ],
-        [
-          31,
-          47,
-          323
-        ]
-      ]
-    }
-  },
-  {
-    "timestamp": "2025-11-16T14:35:28.219073",
-    "experiment_name": "baseline",
-    "data_type": "Test",
-    "hyperparameters": {
-      "model_config": {
-        "input_shape": [
-          256,
-          256,
-          3
-        ],
-        "conv_layers": [
-          {
-            "filters": 32,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          },
-          {
-            "filters": 64,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          },
-          {
-            "filters": 128,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          }
-        ],
-        "pool_size": [
-          2,
-          2
-        ],
-        "dense_units": [
-          128
-        ],
-        "output_units": 3,
-        "output_activation": null,
-        "dropout_rate": 0.2
-      },
-      "compile_config": {
-        "optimizer": "adam",
-        "learning_rate": 0.001,
-        "loss": "SparseCategoricalCrossentropy",
-        "metrics": [
-          "accuracy"
-        ]
-      },
-      "train_config": {
-        "epochs": 10,
-        "batch_size": 32,
-        "verbose": 1,
-        "shuffle": true
-      },
-      "description": "Baseline model with default settings"
-    },
-    "results": {
-      "test_loss": 1.3022055625915527,
-      "test_accuracy": 0.7468060255050659,
-      "precision_macro": 0.7319289441314907,
-      "recall_macro": 0.7448562280510904,
-      "f1_score_macro": 0.7348963345289127,
-      "precision_weighted": 0.7534435152381816,
-      "recall_weighted": 0.7468060394889663,
-      "f1_score_weighted": 0.7470105488762501,
-      "precision": 0.7534435152381816,
-      "recall": 0.7468060394889663,
-      "f1_score": 0.7470105488762501,
-      "mAP": 0.7896494203806329,
-      "precision_per_class": {
-        "fire": 0.6824817518248175,
-        "smoke": 0.672645739910314,
-        "nothing": 0.8406593406593407
-      },
-      "recall_per_class": {
-        "fire": 0.8385650224215246,
-        "smoke": 0.6329113924050633,
-        "nothing": 0.7630922693266833
-      },
-      "f1_per_class": {
-        "fire": 0.7525150905432596,
-        "smoke": 0.6521739130434783,
-        "nothing": 0.8
-      },
-      "class_support": {
-        "fire": 223,
-        "smoke": 237,
-        "nothing": 401
-      },
-      "confusion_matrix": [
-        [
-          187,
-          17,
-          19
-        ],
-        [
-          48,
-          150,
-          39
-        ],
-        [
-          39,
-          56,
-          306
-        ]
-      ]
-    }
-  },
-  {
-    "timestamp": "2025-11-16T14:37:25.950625",
-    "experiment_name": "deeper_network",
-    "data_type": "Test",
-    "hyperparameters": {
-      "model_config": {
-        "input_shape": [
-          256,
-          256,
-          3
-        ],
-        "conv_layers": [
-          {
-            "filters": 64,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          },
-          {
-            "filters": 128,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          },
-          {
-            "filters": 256,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          }
-        ],
-        "pool_size": [
-          2,
-          2
-        ],
-        "dense_units": [
-          256,
-          128
-        ],
-        "output_units": 3,
-        "output_activation": null,
-        "dropout_rate": 0.5
-      },
-      "compile_config": {
-        "optimizer": "adam",
-        "learning_rate": 0.0001,
-        "loss": "SparseCategoricalCrossentropy",
-        "metrics": [
-          "accuracy"
-        ]
-      },
-      "train_config": {
-        "epochs": 10,
-        "batch_size": 16,
-        "verbose": 1,
-        "shuffle": true
-      },
-      "description": "Complex network with all parameter adjustments"
-    },
-    "results": {
-      "test_loss": 0.7354447245597839,
-      "test_accuracy": 0.7200928926467896,
-      "precision_macro": 0.7168043926840326,
-      "recall_macro": 0.7188827550179379,
-      "f1_score_macro": 0.7159701131069026,
-      "precision_weighted": 0.7303586795554414,
-      "recall_weighted": 0.7200929152148664,
-      "f1_score_weighted": 0.7234160142169168,
-      "precision": 0.7303586795554414,
-      "recall": 0.7200929152148664,
-      "f1_score": 0.7234160142169168,
-      "mAP": 0.7773832312682728,
-      "precision_per_class": {
-        "fire": 0.7813953488372093,
-        "smoke": 0.5755395683453237,
-        "nothing": 0.7934782608695652
-      },
-      "recall_per_class": {
-        "fire": 0.7533632286995515,
-        "smoke": 0.6751054852320675,
-        "nothing": 0.7281795511221946
-      },
-      "f1_per_class": {
-        "fire": 0.7671232876712328,
-        "smoke": 0.6213592233009708,
-        "nothing": 0.7594278283485045
-      },
-      "class_support": {
-        "fire": 223,
-        "smoke": 237,
-        "nothing": 401
-      },
-      "confusion_matrix": [
-        [
-          168,
-          35,
-          20
-        ],
-        [
-          21,
-          160,
-          56
-        ],
-        [
-          26,
-          83,
-          292
-        ]
-      ]
-    }
-  },
-  {
-    "timestamp": "2025-11-16T14:38:11.762525",
+    "timestamp": "2025-12-10T11:17:44.550198",
     "experiment_name": "more_dropout",
-    "data_type": "Test",
+    "data_type": "Validation",
     "hyperparameters": {
       "model_config": {
         "input_shape": [
@@ -812,9 +305,10 @@
         "dense_units": [
           128
         ],
-        "output_units": 3,
+        "output_units": 4,
         "output_activation": null,
-        "dropout_rate": 0.5
+        "dropout_rate": 0.25,
+        "l2_regularization": 0.0
       },
       "compile_config": {
         "optimizer": "adam",
@@ -827,67 +321,212 @@
       "train_config": {
         "epochs": 10,
         "batch_size": 32,
+        "validation_batch_size": 16,
         "verbose": 1,
         "shuffle": true
       },
-      "description": "Baseline model with dropout regularization"
+      "description": "Baseline model with dropout regularization (batch_size=32)"
     },
     "results": {
-      "test_loss": 1.0776612758636475,
-      "test_accuracy": 0.7200928926467896,
-      "precision_macro": 0.7241463073752369,
-      "recall_macro": 0.6994617295855176,
-      "f1_score_macro": 0.7087135203487405,
-      "precision_weighted": 0.724732533181316,
-      "recall_weighted": 0.7200929152148664,
-      "f1_score_weighted": 0.7196849618134653,
-      "precision": 0.724732533181316,
-      "recall": 0.7200929152148664,
-      "f1_score": 0.7196849618134653,
-      "mAP": 0.7767136509587115,
+      "test_loss": 1.0507187843322754,
+      "test_accuracy": 0.8034833073616028,
+      "precision_macro": 0.769653379656912,
+      "recall_macro": 0.7276529211891622,
+      "f1_score_macro": 0.7440116555736928,
+      "precision_weighted": 0.8045467033224625,
+      "recall_weighted": 0.8034833091436865,
+      "f1_score_weighted": 0.8019759465712563,
+      "precision": 0.8045467033224625,
+      "recall": 0.8034833091436865,
+      "f1_score": 0.8019759465712563,
+      "mAP": 0.7966268184600498,
       "precision_per_class": {
-        "fire": 0.8241758241758241,
-        "smoke": 0.6125,
-        "nothing": 0.7357630979498861
+        "fire": 0.6857142857142857,
+        "smoke": 0.7175355450236967,
+        "nothing": 0.8708860759493671,
+        "fire_and_smoke": 0.8044776119402985
       },
       "recall_per_class": {
-        "fire": 0.672645739910314,
-        "smoke": 0.620253164556962,
-        "nothing": 0.8054862842892768
+        "fire": 0.5079365079365079,
+        "smoke": 0.8087606837606838,
+        "nothing": 0.8781110402042118,
+        "fire_and_smoke": 0.7158034528552457
       },
       "f1_per_class": {
-        "fire": 0.7407407407407407,
-        "smoke": 0.6163522012578616,
-        "nothing": 0.7690476190476191
+        "fire": 0.5835866261398176,
+        "smoke": 0.7604218985434456,
+        "nothing": 0.8744836352081348,
+        "fire_and_smoke": 0.7575544624033732
       },
       "class_support": {
-        "fire": 223,
-        "smoke": 237,
-        "nothing": 401
+        "fire": 189,
+        "smoke": 936,
+        "nothing": 1567,
+        "fire_and_smoke": 753
       },
       "confusion_matrix": [
         [
-          150,
-          30,
-          43
+          96,
+          15,
+          14,
+          64
         ],
         [
-          17,
-          147,
+          2,
+          757,
+          141,
+          36
+        ],
+        [
+          2,
+          158,
+          1376,
+          31
+        ],
+        [
+          40,
+          125,
+          49,
+          539
+        ]
+      ]
+    }
+  },
+  {
+    "timestamp": "2025-12-10T11:23:16.358796",
+    "experiment_name": "less_dropout",
+    "data_type": "Validation",
+    "hyperparameters": {
+      "model_config": {
+        "input_shape": [
+          256,
+          256,
+          3
+        ],
+        "conv_layers": [
+          {
+            "filters": 32,
+            "kernel_size": [
+              3,
+              3
+            ],
+            "activation": "relu"
+          },
+          {
+            "filters": 64,
+            "kernel_size": [
+              3,
+              3
+            ],
+            "activation": "relu"
+          },
+          {
+            "filters": 128,
+            "kernel_size": [
+              3,
+              3
+            ],
+            "activation": "relu"
+          }
+        ],
+        "pool_size": [
+          2,
+          2
+        ],
+        "dense_units": [
+          128
+        ],
+        "output_units": 4,
+        "output_activation": null,
+        "dropout_rate": 0.15,
+        "l2_regularization": 0.0
+      },
+      "compile_config": {
+        "optimizer": "adam",
+        "learning_rate": 0.001,
+        "loss": "SparseCategoricalCrossentropy",
+        "metrics": [
+          "accuracy"
+        ]
+      },
+      "train_config": {
+        "epochs": 10,
+        "batch_size": 32,
+        "validation_batch_size": 16,
+        "verbose": 1,
+        "shuffle": true
+      },
+      "description": "Baseline model with dropout regularization (batch_size=32)"
+    },
+    "results": {
+      "test_loss": 1.0318007469177246,
+      "test_accuracy": 0.8116110563278198,
+      "precision_macro": 0.7785362013299237,
+      "recall_macro": 0.7374436870836245,
+      "f1_score_macro": 0.7523723600923069,
+      "precision_weighted": 0.8101282559763,
+      "recall_weighted": 0.811611030478955,
+      "f1_score_weighted": 0.8089918307603124,
+      "precision": 0.8101282559763,
+      "recall": 0.811611030478955,
+      "f1_score": 0.8089918307603124,
+      "mAP": 0.8067126295474766,
+      "precision_per_class": {
+        "fire": 0.7121212121212122,
+        "smoke": 0.7813578826237054,
+        "nothing": 0.865588052271313,
+        "fire_and_smoke": 0.7550776583034647
+      },
+      "recall_per_class": {
+        "fire": 0.4973544973544973,
+        "smoke": 0.7254273504273504,
+        "nothing": 0.8876834716017868,
+        "fire_and_smoke": 0.8393094289508632
+      },
+      "f1_per_class": {
+        "fire": 0.5856697819314641,
+        "smoke": 0.7523545706371191,
+        "nothing": 0.8764965343415249,
+        "fire_and_smoke": 0.7949685534591195
+      },
+      "class_support": {
+        "fire": 189,
+        "smoke": 936,
+        "nothing": 1567,
+        "fire_and_smoke": 753
+      },
+      "confusion_matrix": [
+        [
+          94,
+          15,
+          7,
           73
         ],
         [
-          15,
-          63,
-          323
+          1,
+          679,
+          180,
+          76
+        ],
+        [
+          5,
+          115,
+          1391,
+          56
+        ],
+        [
+          32,
+          60,
+          29,
+          632
         ]
       ]
     }
   },
   {
-    "timestamp": "2025-11-16T14:39:01.793575",
+    "timestamp": "2025-12-10T11:28:49.738523",
     "experiment_name": "lower_learning_rate",
-    "data_type": "Test",
+    "data_type": "Validation",
     "hyperparameters": {
       "model_config": {
         "input_shape": [
@@ -928,9 +567,10 @@
         "dense_units": [
           128
         ],
-        "output_units": 3,
+        "output_units": 4,
         "output_activation": null,
-        "dropout_rate": 0.2
+        "dropout_rate": 0.2,
+        "l2_regularization": 0.0
       },
       "compile_config": {
         "optimizer": "adam",
@@ -943,183 +583,80 @@
       "train_config": {
         "epochs": 10,
         "batch_size": 32,
+        "validation_batch_size": 16,
         "verbose": 1,
         "shuffle": true
       },
-      "description": "Baseline model with lower learning rate"
+      "description": "Baseline model with lower learning rate (batch_size=32)"
     },
     "results": {
-      "test_loss": 0.6990044116973877,
-      "test_accuracy": 0.7189314961433411,
-      "precision_macro": 0.7329253505913643,
-      "recall_macro": 0.7284962085335563,
-      "f1_score_macro": 0.7190330777670723,
-      "precision_weighted": 0.7520411701396914,
-      "recall_weighted": 0.718931475029036,
-      "f1_score_weighted": 0.7242232731589102,
-      "precision": 0.7520411701396914,
-      "recall": 0.718931475029036,
-      "f1_score": 0.7242232731589102,
-      "mAP": 0.7860001568687723,
+      "test_loss": 0.6727011203765869,
+      "test_accuracy": 0.8026124835014343,
+      "precision_macro": 0.7573995348493515,
+      "recall_macro": 0.738742560503141,
+      "f1_score_macro": 0.7463091149530277,
+      "precision_weighted": 0.8006820504628387,
+      "recall_weighted": 0.8026124818577649,
+      "f1_score_weighted": 0.7997278333300599,
+      "precision": 0.8006820504628387,
+      "recall": 0.8026124818577649,
+      "f1_score": 0.7997278333300599,
+      "mAP": 0.8098078071797573,
       "precision_per_class": {
-        "fire": 0.8,
-        "smoke": 0.5597667638483965,
-        "nothing": 0.8390092879256966
+        "fire": 0.6379310344827587,
+        "smoke": 0.8027465667915106,
+        "nothing": 0.8476077968103958,
+        "fire_and_smoke": 0.7413127413127413
       },
       "recall_per_class": {
-        "fire": 0.6995515695067265,
-        "smoke": 0.810126582278481,
-        "nothing": 0.6758104738154613
+        "fire": 0.5873015873015873,
+        "smoke": 0.686965811965812,
+        "nothing": 0.9157626037013401,
+        "fire_and_smoke": 0.7649402390438247
       },
       "f1_per_class": {
-        "fire": 0.7464114832535885,
-        "smoke": 0.6620689655172414,
-        "nothing": 0.7486187845303868
+        "fire": 0.6115702479338843,
+        "smoke": 0.740356937248129,
+        "nothing": 0.8803680981595092,
+        "fire_and_smoke": 0.7529411764705882
       },
       "class_support": {
-        "fire": 223,
-        "smoke": 237,
-        "nothing": 401
+        "fire": 189,
+        "smoke": 936,
+        "nothing": 1567,
+        "fire_and_smoke": 753
       },
       "confusion_matrix": [
         [
-          156,
-          43,
-          24
-        ],
-        [
-          17,
-          192,
-          28
-        ],
-        [
-          22,
-          108,
-          271
-        ]
-      ]
-    }
-  },
-  {
-    "timestamp": "2025-11-16T19:38:43.365025",
-    "experiment_name": "baseline",
-    "data_type": "Validation",
-    "hyperparameters": {
-      "model_config": {
-        "input_shape": [
-          256,
-          256,
-          3
-        ],
-        "conv_layers": [
-          {
-            "filters": 32,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          },
-          {
-            "filters": 64,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          },
-          {
-            "filters": 128,
-            "kernel_size": [
-              3,
-              3
-            ],
-            "activation": "relu"
-          }
-        ],
-        "pool_size": [
-          2,
-          2
-        ],
-        "dense_units": [
-          128
-        ],
-        "output_units": 3,
-        "output_activation": null,
-        "dropout_rate": 0.2
-      },
-      "compile_config": {
-        "optimizer": "adam",
-        "learning_rate": 0.001,
-        "loss": "SparseCategoricalCrossentropy",
-        "metrics": [
-          "accuracy"
-        ]
-      },
-      "train_config": {
-        "epochs": 10,
-        "batch_size": 16,
-        "validation_batch_size": 4,
-        "verbose": 1,
-        "shuffle": true
-      },
-      "description": "Baseline model with default settings (batch_size=16 for GPU memory)"
-    },
-    "results": {
-      "test_loss": 1.3198641538619995,
-      "test_accuracy": 0.7209302186965942,
-      "precision_macro": 0.7100641082330169,
-      "recall_macro": 0.7176250846523592,
-      "f1_score_macro": 0.7112361269581244,
-      "precision_weighted": 0.7218267290102531,
-      "recall_weighted": 0.7209302325581395,
-      "f1_score_weighted": 0.7191484281594088,
-      "precision": 0.7218267290102531,
-      "recall": 0.7209302325581395,
-      "f1_score": 0.7191484281594088,
-      "mAP": 0.7869135355418053,
-      "precision_per_class": {
-        "fire": 0.695067264573991,
-        "smoke": 0.6607142857142857,
-        "nothing": 0.7744107744107744
-      },
-      "recall_per_class": {
-        "fire": 0.824468085106383,
-        "smoke": 0.5935828877005348,
-        "nothing": 0.7348242811501597
-      },
-      "f1_per_class": {
-        "fire": 0.754257907542579,
-        "smoke": 0.6253521126760564,
-        "nothing": 0.7540983606557377
-      },
-      "class_support": {
-        "fire": 188,
-        "smoke": 187,
-        "nothing": 313
-      },
-      "confusion_matrix": [
-        [
-          155,
-          15,
-          18
-        ],
-        [
-          27,
           111,
-          49
+          6,
+          17,
+          55
         ],
         [
-          41,
-          42,
-          230
+          6,
+          643,
+          193,
+          94
+        ],
+        [
+          5,
+          75,
+          1435,
+          52
+        ],
+        [
+          52,
+          77,
+          48,
+          576
         ]
       ]
     }
   },
   {
-    "timestamp": "2025-11-16T19:52:51.828149",
-    "experiment_name": "baseline",
+    "timestamp": "2025-12-10T11:34:14.962381",
+    "experiment_name": "add_regularization",
     "data_type": "Validation",
     "hyperparameters": {
       "model_config": {
@@ -1161,9 +698,10 @@
         "dense_units": [
           128
         ],
-        "output_units": 3,
+        "output_units": 4,
         "output_activation": null,
-        "dropout_rate": 0.2
+        "dropout_rate": 0.2,
+        "l2_regularization": 0.001
       },
       "compile_config": {
         "optimizer": "adam",
@@ -1175,61 +713,74 @@
       },
       "train_config": {
         "epochs": 10,
-        "batch_size": 16,
-        "validation_batch_size": 4,
+        "batch_size": 32,
+        "validation_batch_size": 16,
         "verbose": 1,
         "shuffle": true
       },
-      "description": "Baseline model with default settings (batch_size=16 for GPU memory)"
+      "description": "Baseline model with L2 regularization"
     },
     "results": {
-      "test_loss": 1.2109671831130981,
-      "test_accuracy": 0.7529069781303406,
-      "precision_macro": 0.7500564029109148,
-      "recall_macro": 0.7318396531340428,
-      "f1_score_macro": 0.738219979557155,
-      "precision_weighted": 0.7510173000143127,
-      "recall_weighted": 0.752906976744186,
-      "f1_score_weighted": 0.7492569265099825,
-      "precision": 0.7510173000143127,
-      "recall": 0.752906976744186,
-      "f1_score": 0.7492569265099825,
-      "mAP": 0.8121772087105518,
+      "test_loss": 1.0221030712127686,
+      "test_accuracy": 0.7793903946876526,
+      "precision_macro": 0.7497673796996691,
+      "recall_macro": 0.7051802580932074,
+      "f1_score_macro": 0.7218560739811832,
+      "precision_weighted": 0.7793248149765697,
+      "recall_weighted": 0.7793904208998549,
+      "f1_score_weighted": 0.7779341884362097,
+      "precision": 0.7793248149765697,
+      "recall": 0.7793904208998549,
+      "f1_score": 0.7779341884362097,
+      "mAP": 0.7868532826741398,
       "precision_per_class": {
-        "fire": 0.7900552486187845,
-        "smoke": 0.7051282051282052,
-        "nothing": 0.7549857549857549
+        "fire": 0.6953125,
+        "smoke": 0.707876370887338,
+        "nothing": 0.8465473145780051,
+        "fire_and_smoke": 0.7493333333333333
       },
       "recall_per_class": {
-        "fire": 0.7606382978723404,
-        "smoke": 0.5882352941176471,
-        "nothing": 0.8466453674121406
+        "fire": 0.4708994708994709,
+        "smoke": 0.7585470085470085,
+        "nothing": 0.8449266113592853,
+        "fire_and_smoke": 0.7463479415670651
       },
       "f1_per_class": {
-        "fire": 0.7750677506775068,
-        "smoke": 0.641399416909621,
-        "nothing": 0.7981927710843374
+        "fire": 0.5615141955835962,
+        "smoke": 0.7323362558019598,
+        "nothing": 0.845736186521878,
+        "fire_and_smoke": 0.7478376580172987
       },
       "class_support": {
-        "fire": 188,
-        "smoke": 187,
-        "nothing": 313
+        "fire": 189,
+        "smoke": 936,
+        "nothing": 1567,
+        "fire_and_smoke": 753
       },
       "confusion_matrix": [
         [
-          143,
-          17,
-          28
+          89,
+          16,
+          14,
+          70
         ],
         [
-          19,
-          110,
-          58
+          1,
+          710,
+          157,
+          68
         ],
         [
-          19,
-          29,
-          265
+          4,
+          189,
+          1324,
+          50
+        ],
+        [
+          34,
+          88,
+          69,
+          562
         ]
       ]
     }

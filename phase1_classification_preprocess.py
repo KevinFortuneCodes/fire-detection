@@ -104,7 +104,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--resample-percent",
         type=float,
-        default=20.0,
+        default=100.0,
         help="Optional percentage (0-100] of images to keep per split while preserving class ratios.",
     )
     parser.add_argument(
@@ -118,6 +118,12 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=20.0,
         help="Percentage of the training split to reserve for a derived validation split.",
+    )
+    parser.add_argument(
+        "--shuffle-seed",
+        type=int,
+        default=42,
+        help="Random seed for shuffling CSV files (default: 42).",
     )
     return parser.parse_args()
 
@@ -271,8 +277,27 @@ def ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
-def write_metadata_csv(samples: Iterable[SampleMeta], csv_path: Path) -> None:
+def write_metadata_csv(samples: Iterable[SampleMeta], csv_path: Path, shuffle: bool = True, seed: int = 42) -> None:
+    """
+    Write metadata CSV file, optionally shuffling samples before writing.
+    
+    Args:
+        samples: Iterable of SampleMeta objects
+        csv_path: Path to output CSV file
+        shuffle: Whether to shuffle samples before writing (default: True)
+        seed: Random seed for shuffling (default: 42)
+    """
     ensure_dir(csv_path.parent)
+    
+    # Convert to list so we can shuffle
+    samples_list = list(samples)
+    
+    # Shuffle samples to avoid sorted-by-label issues during training
+    if shuffle:
+        random.seed(seed)
+        random.shuffle(samples_list)
+        logging.info("Shuffled %d samples before writing CSV (seed=%d)", len(samples_list), seed)
+    
     fieldnames = [
         "image_id",
         "split",
@@ -285,7 +310,7 @@ def write_metadata_csv(samples: Iterable[SampleMeta], csv_path: Path) -> None:
     with csv_path.open("w", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
-        for sample in samples:
+        for sample in samples_list:
             writer.writerow(
                 {
                     "image_id": sample.image_id,
@@ -439,7 +464,8 @@ def main() -> None:
         stats[split] = per_label
 
         csv_path = args.output_dir / f"{split}_metadata.csv"
-        write_metadata_csv(split_samples, csv_path)
+        # Shuffle samples before writing to avoid sorted-by-label issues during training
+        write_metadata_csv(split_samples, csv_path, shuffle=True, seed=args.shuffle_seed)
         logging.info("Wrote metadata to %s", csv_path)
 
     logging.info("Dataset summary:")

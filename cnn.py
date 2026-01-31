@@ -3,36 +3,38 @@ from tensorflow import keras
 from tensorflow.keras import layers, models
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import SparseCategoricalCrossentropy
+from tensorflow.keras.regularizers import l2 
 import numpy as np
 from sklearn.metrics import precision_score, recall_score, average_precision_score
 
 MODEL_CONFIG = {
-    'input_shape': (256, 256, 3),  # Matches phase1 preprocessing default image size
+    'input_shape': (256, 256, 3), 
     'conv_layers': [
         {'filters': 32, 'kernel_size': (3, 3), 'activation': 'relu'},
         {'filters': 64, 'kernel_size': (3, 3), 'activation': 'relu'},
-        {'filters': 128, 'kernel_size': (3, 3), 'activation': 'relu'},  # Increased from 64 to 128
+        {'filters': 128, 'kernel_size': (3, 3), 'activation': 'relu'}, 
     ],
     'pool_size': (2, 2),  # Standard 2x2 max pooling (halves spatial dimensions)
-    'dense_units': [128],  # Increased from 64 to 128 to match final conv layer
-    'output_units': 3,  # 3 classes: fire, smoke, nothing
+    'dense_units': [128], 
+    'output_units': 4,  # 4 classes: fire, smoke, nothing, fire_and_smoke
     'output_activation': None,
-    'dropout_rate': 0.2,  # Small default dropout for regularization (131k features → 128 units)
+    'dropout_rate': 0.2, 
+    'l2_regularization': 0.0, 
 }
 
 COMPILE_CONFIG = {
     'optimizer': 'adam',
     'learning_rate': 0.001,
-    'loss': SparseCategoricalCrossentropy(from_logits=True), # make sure to add new loss classes to the import
-    'metrics': ['accuracy'] # must be a list
+    'loss': SparseCategoricalCrossentropy(from_logits=True),
+    'metrics': ['accuracy']
 }
 
 TRAIN_CONFIG = {
     'epochs': 10,
-    'batch_size': 16,  # Reduced from 32 to prevent GPU OOM errors
-    'validation_batch_size': 4,  # Very small batch size for validation to reduce GPU memory during evaluation
+    'batch_size': 32, 
+    'validation_batch_size': 16, 
     'verbose': 1,
-    'shuffle': True  # Shuffle training data each epoch
+    'shuffle': True 
 }
 
 
@@ -50,40 +52,59 @@ def create_model(config=None):
     if config is None:
         config = MODEL_CONFIG.copy()
     
+    # Get L2 regularization value, default to 0 if not specified
+    l2_reg = config.get('l2_regularization', 0)
+    kernel_regularizer = l2(l2_reg) if l2_reg > 0 else None
+    
     model = models.Sequential()
     
     # Input layer
     first_conv = config['conv_layers'][0]
-    model.add(layers.Conv2D(
-        first_conv['filters'],
-        first_conv['kernel_size'],
-        activation=first_conv['activation'],
-        input_shape=config['input_shape']
-    ))
+    conv_kwargs = {
+        'filters': first_conv['filters'],
+        'kernel_size': first_conv['kernel_size'],
+        'activation': first_conv['activation'],
+        'input_shape': config['input_shape']
+    }
+    if kernel_regularizer is not None:
+        conv_kwargs['kernel_regularizer'] = kernel_regularizer
+    model.add(layers.Conv2D(**conv_kwargs))
     model.add(layers.MaxPooling2D(config['pool_size']))
     
-    # Additional convolutional layers. Number of layers is determined by the length of the list in the config dictionary.
+    # Additional convolutional layers
     for conv_config in config['conv_layers'][1:]:
-        model.add(layers.Conv2D(
-            conv_config['filters'],
-            conv_config['kernel_size'],
-            activation=conv_config['activation']
-        ))
+        conv_kwargs = {
+            'filters': conv_config['filters'],
+            'kernel_size': conv_config['kernel_size'],
+            'activation': conv_config['activation']
+        }
+        if kernel_regularizer is not None:
+            conv_kwargs['kernel_regularizer'] = kernel_regularizer
+        model.add(layers.Conv2D(**conv_kwargs))
         model.add(layers.MaxPooling2D(config['pool_size']))
     
     model.add(layers.Flatten())
     
-    # Create dense layers. The number of layers is determined by the length of the list in the config dictionary
+    # Create dense layers
     for units in config['dense_units']:
-        model.add(layers.Dense(units, activation='relu'))
+        dense_kwargs = {
+            'units': units,
+            'activation': 'relu'
+        }
+        if kernel_regularizer is not None:
+            dense_kwargs['kernel_regularizer'] = kernel_regularizer
+        model.add(layers.Dense(**dense_kwargs))
         if config['dropout_rate'] > 0:
             model.add(layers.Dropout(config['dropout_rate']))
     
     # Output layer
-    model.add(layers.Dense(
-        config['output_units'],
-        activation=config['output_activation']
-    ))
+    output_kwargs = {
+        'units': config['output_units'],
+        'activation': config['output_activation']
+    }
+    if kernel_regularizer is not None:
+        output_kwargs['kernel_regularizer'] = kernel_regularizer
+    model.add(layers.Dense(**output_kwargs))
     
     return model
 
@@ -109,20 +130,36 @@ def train_model(model, train_data, val_data=None, config=TRAIN_CONFIG):
     
     Args:
         model: Compiled Keras model
-        train_data: Training data (X_train, y_train) tuple
-        val_data: Validation data (X_val, y_val) tuple or None
-        epochs: Number of training epochs
-        batch_size: Batch size for training
-        verbose: Verbosity level
+        train_data: Training data - can be either:
+            - (X_train, y_train) tuple of numpy arrays
+            - tf.data.Dataset (memory-efficient, loads images on-demand)
+        val_data: Validation data - can be either:
+            - (X_val, y_val) tuple of numpy arrays
+            - tf.data.Dataset (memory-efficient, loads images on-demand)
+            - None
+        config: Training configuration dictionary
     
     Returns:
-        Trained model
+        Trained model (History object from model.fit())
     """
-    X_train, y_train = train_data
-    validation_data = val_data if val_data else None
+    # Check if train_data is a tf.data.Dataset or numpy arrays
+    if isinstance(train_data, tf.data.Dataset):
+        # Dataset already has batching, so we don't specify batch_size
+        X_train = train_data
+        y_train = None
+        use_dataset = True
+    else:
+        # Numpy arrays - unpack tuple
+        X_train, y_train = train_data
+        use_dataset = False
     
-    # Use smaller batch size for validation if specified to reduce GPU memory
-    validation_batch_size = config.get('validation_batch_size', config['batch_size'])
+    # Handle validation data
+    validation_data = None
+    if val_data is not None:
+        if isinstance(val_data, tf.data.Dataset):
+            validation_data = val_data
+        else:
+            validation_data = val_data
     
     # Optionally skip validation during training if memory is too constrained
     # Validation can be done separately after training
@@ -131,20 +168,45 @@ def train_model(model, train_data, val_data=None, config=TRAIN_CONFIG):
         print("Warning: Skipping validation during training to save GPU memory.")
         print("         You can evaluate the model separately after training.")
     
+    # Build fit_kwargs
     fit_kwargs = {
         'epochs': config['epochs'],
-        'batch_size': config['batch_size'],
         'verbose': config['verbose'],
-        'shuffle': config.get('shuffle', True)
     }
     
-    if validation_data is not None:
-        fit_kwargs['validation_data'] = validation_data
-        fit_kwargs['validation_batch_size'] = validation_batch_size
+    if use_dataset:
+        # For tf.data.Dataset, don't specify batch_size or shuffle
+        # (those are handled by the dataset)
+        if validation_data is not None:
+            fit_kwargs['validation_data'] = validation_data
+    else:
+        # For numpy arrays, specify batch_size and shuffle
+        fit_kwargs['batch_size'] = config['batch_size']
+        fit_kwargs['shuffle'] = config.get('shuffle', True)
+        
+        if validation_data is not None:
+            fit_kwargs['validation_data'] = validation_data
+            # Use smaller batch size for validation if specified to reduce GPU memory
+            validation_batch_size = config.get('validation_batch_size', config['batch_size'])
+            fit_kwargs['validation_batch_size'] = validation_batch_size
     
-    trained_model = model.fit(
-        X_train, y_train,
-        **fit_kwargs
-    )
+    # Train the model
+    if use_dataset:
+        # For tf.data.Dataset, Keras will handle iteration automatically
+        trained_model = model.fit(X_train, **fit_kwargs)
+    else:
+        trained_model = model.fit(X_train, y_train, **fit_kwargs)
+    
+    # Check training progress
+    if hasattr(trained_model, 'history'):
+        history = trained_model.history
+        if 'loss' in history:
+            losses = history['loss']
+            if len(losses) > 1:
+                loss_change = losses[0] - losses[-1]
+                if abs(loss_change) < 0.001:
+                    print(f"\nWarning: Training loss barely changed ({losses[0]:.4f} → {losses[-1]:.4f})")
+                else:
+                    print(f"\nTraining loss: {losses[0]:.4f} → {losses[-1]:.4f} (Δ={loss_change:.4f})")
     
     return trained_model
