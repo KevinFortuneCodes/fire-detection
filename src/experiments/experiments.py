@@ -1,4 +1,4 @@
-from cnn import MODEL_CONFIG, COMPILE_CONFIG, TRAIN_CONFIG
+from src.models.cnn import MODEL_CONFIG, COMPILE_CONFIG, TRAIN_CONFIG
 
 EXPERIMENTS = {
     'baseline': {

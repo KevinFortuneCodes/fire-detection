@@ -17,11 +17,11 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from PIL import Image
 
-# Import the mapping function from phase2 (parent directory)
+# Import the mapping function from phase2 (src.data)
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from phase2_detection_metadata import metadata_to_fcos_class
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from src.data.phase2_detection_metadata import metadata_to_fcos_class
 
 
 class FireSmokeDetectionDataset(Dataset):

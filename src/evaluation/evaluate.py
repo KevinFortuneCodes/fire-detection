@@ -1,5 +1,4 @@
-
-from experiments import EXPERIMENTS
+from src.experiments.experiments import EXPERIMENTS
 import json
 from datetime import datetime
 from pathlib import Path
@@ -215,7 +214,7 @@ def get_hyperparameters(experiment_name):
     
     return hyperparameters
 
-def log_results(experiment_name, data_type, hyperparameters, results, log_file="experiment_results.json"):
+def log_results(experiment_name, data_type, hyperparameters, results, log_file="results/experiment_results.json"):
     """
     Log experiment results to a JSON file.
     
@@ -230,6 +229,7 @@ def log_results(experiment_name, data_type, hyperparameters, results, log_file="
         None (prints warning if logging fails)
     """
     log_path = Path(log_file)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
     log_entry = {
         'timestamp': datetime.now().isoformat(),
         'experiment_name': experiment_name,

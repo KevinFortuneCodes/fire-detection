@@ -1,7 +1,7 @@
-from cnn import create_model, compile_model, train_model
-from experiments import EXPERIMENTS
-from load_data import retrieve_data_generator
-from evaluate import get_hyperparameters, log_results, evaluate_model, plot_training_history
+from src.models.cnn import create_model, compile_model, train_model
+from src.experiments.experiments import EXPERIMENTS
+from src.data.load_data import retrieve_data_generator
+from src.evaluation.evaluate import get_hyperparameters, log_results, evaluate_model, plot_training_history
 from pathlib import Path
 
 def setup_experiment(experiment_name, show_summary=True):
@@ -125,7 +125,7 @@ def train_experiment(model, experiment_name, train_data, val_data=None):
 
 def evaluate_experiment(model, eval_data, data_type="Validation", 
                         experiment_name=None, hyperparameters=None, 
-                        log_file="experiment_results.json"):
+                        log_file="results/experiment_results.json"):
     """
     Evaluate a trained model on evaluation data.
     
